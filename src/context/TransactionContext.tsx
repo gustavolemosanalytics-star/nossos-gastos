@@ -1,58 +1,162 @@
 'use client';
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import type { Transaction } from '@/types';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { supabase } from '@/lib/supabase';
 import { generateInstallments } from '@/utils/calculations';
 
 interface TransactionContextType {
   transactions: Transaction[];
-  addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  loading: boolean;
+  addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<void>;
   addInstallmentTransaction: (
     transaction: Omit<Transaction, 'id' | 'installmentCurrent' | 'installmentGroupId'>,
     totalInstallments: number
-  ) => void;
-  deleteTransaction: (id: string) => void;
-  deleteInstallmentGroup: (groupId: string) => void;
+  ) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
+  deleteInstallmentGroup: (groupId: string) => Promise<void>;
 }
 
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
 
-export function TransactionProvider({ children }: { children: ReactNode }) {
-  const [transactions, setTransactions] = useLocalStorage<Transaction[]>('nossos-gastos-transactions', []);
+// Mapeamento de Transaction para formato do banco
+function toDbFormat(t: Omit<Transaction, 'id'>) {
+  return {
+    type: t.type,
+    description: t.description,
+    amount: t.amount,
+    category_id: t.categoryId,
+    date: t.date,
+    person: t.person,
+    card_id: t.cardId || null,
+    is_installment: t.isInstallment,
+    installment_current: t.installmentCurrent || null,
+    installment_total: t.installmentTotal || null,
+    installment_group_id: t.installmentGroupId || null,
+  };
+}
 
-  const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
-    const newTransaction: Transaction = {
-      ...transaction,
-      id: crypto.randomUUID(),
-    };
-    setTransactions(prev => [...prev, newTransaction]);
+// Mapeamento do banco para Transaction
+function fromDbFormat(row: Record<string, unknown>): Transaction {
+  return {
+    id: row.id as string,
+    type: row.type as 'expense' | 'income',
+    description: row.description as string,
+    amount: Number(row.amount),
+    categoryId: row.category_id as string,
+    date: row.date as string,
+    person: row.person as 'amanda' | 'gustavo' | 'nos',
+    cardId: row.card_id as string | undefined,
+    isInstallment: row.is_installment as boolean,
+    installmentCurrent: row.installment_current as number | undefined,
+    installmentTotal: row.installment_total as number | undefined,
+    installmentGroupId: row.installment_group_id as string | undefined,
+  };
+}
+
+export function TransactionProvider({ children }: { children: ReactNode }) {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Carregar transações do Supabase
+  const fetchTransactions = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('nossos-gastos-transactions')
+        .select('*')
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+
+      setTransactions((data || []).map(fromDbFormat));
+    } catch (error) {
+      console.error('Erro ao carregar transações:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
+
+  const addTransaction = async (transaction: Omit<Transaction, 'id'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('nossos-gastos-transactions')
+        .insert([toDbFormat(transaction)])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setTransactions(prev => [fromDbFormat(data), ...prev]);
+    } catch (error) {
+      console.error('Erro ao adicionar transação:', error);
+      throw error;
+    }
   };
 
-  const addInstallmentTransaction = (
+  const addInstallmentTransaction = async (
     transaction: Omit<Transaction, 'id' | 'installmentCurrent' | 'installmentGroupId'>,
     totalInstallments: number
   ) => {
-    const installments = generateInstallments(transaction, totalInstallments);
-    const newTransactions: Transaction[] = installments.map(inst => ({
-      ...inst,
-      id: crypto.randomUUID(),
-    }));
-    setTransactions(prev => [...prev, ...newTransactions]);
+    try {
+      const installments = generateInstallments(transaction, totalInstallments);
+      const dbInstallments = installments.map(inst => toDbFormat(inst));
+
+      const { data, error } = await supabase
+        .from('nossos-gastos-transactions')
+        .insert(dbInstallments)
+        .select();
+
+      if (error) throw error;
+
+      const newTransactions = (data || []).map(fromDbFormat);
+      setTransactions(prev => [...newTransactions, ...prev]);
+    } catch (error) {
+      console.error('Erro ao adicionar parcelas:', error);
+      throw error;
+    }
   };
 
-  const deleteTransaction = (id: string) => {
-    setTransactions(prev => prev.filter(t => t.id !== id));
+  const deleteTransaction = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('nossos-gastos-transactions')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setTransactions(prev => prev.filter(t => t.id !== id));
+    } catch (error) {
+      console.error('Erro ao deletar transação:', error);
+      throw error;
+    }
   };
 
-  const deleteInstallmentGroup = (groupId: string) => {
-    setTransactions(prev => prev.filter(t => t.installmentGroupId !== groupId));
+  const deleteInstallmentGroup = async (groupId: string) => {
+    try {
+      const { error } = await supabase
+        .from('nossos-gastos-transactions')
+        .delete()
+        .eq('installment_group_id', groupId);
+
+      if (error) throw error;
+
+      setTransactions(prev => prev.filter(t => t.installmentGroupId !== groupId));
+    } catch (error) {
+      console.error('Erro ao deletar parcelas:', error);
+      throw error;
+    }
   };
 
   return (
     <TransactionContext.Provider
       value={{
         transactions,
+        loading,
         addTransaction,
         addInstallmentTransaction,
         deleteTransaction,
