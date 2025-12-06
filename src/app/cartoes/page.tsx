@@ -15,12 +15,14 @@ export default function Cartoes() {
   const [color, setColor] = useState('#22c55e');
   const [closingDay, setClosingDay] = useState('10');
   const [dueDay, setDueDay] = useState('20');
+  const [bestPurchaseDay, setBestPurchaseDay] = useState('');
 
   const resetForm = () => {
     setName('');
     setColor('#22c55e');
     setClosingDay('10');
     setDueDay('20');
+    setBestPurchaseDay('');
   };
 
   const handleCreate = (e: React.FormEvent) => {
@@ -32,6 +34,7 @@ export default function Cartoes() {
       color,
       closingDay: parseInt(closingDay),
       dueDay: parseInt(dueDay),
+      bestPurchaseDay: bestPurchaseDay ? parseInt(bestPurchaseDay) : undefined,
     });
 
     resetForm();
@@ -46,6 +49,7 @@ export default function Cartoes() {
     setColor(card.color);
     setClosingDay(card.closingDay.toString());
     setDueDay(card.dueDay.toString());
+    setBestPurchaseDay(card.bestPurchaseDay?.toString() || '');
     setEditingCard(cardId);
   };
 
@@ -58,6 +62,7 @@ export default function Cartoes() {
       color,
       closingDay: parseInt(closingDay),
       dueDay: parseInt(dueDay),
+      bestPurchaseDay: bestPurchaseDay ? parseInt(bestPurchaseDay) : undefined,
     });
 
     resetForm();
@@ -206,6 +211,18 @@ export default function Cartoes() {
                         </p>
                       </div>
                     </div>
+
+                    {card.bestPurchaseDay && (
+                      <div className="mt-3 bg-green-50 rounded-lg p-3">
+                        <p className="text-xs text-green-600 mb-1">Melhor dia de compra</p>
+                        <p className="text-sm font-semibold text-gray-900">
+                          Dia {card.bestPurchaseDay}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Compras a partir desse dia vão para a próxima fatura
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -306,6 +323,27 @@ export default function Cartoes() {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Melhor dia de compra (opcional)
+                </label>
+                <select
+                  value={bestPurchaseDay}
+                  onChange={e => setBestPurchaseDay(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all"
+                >
+                  <option value="">Não definido</option>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                    <option key={day} value={day}>
+                      Dia {day}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Compras a partir desse dia vão para a fatura do próximo mês
+                </p>
               </div>
 
               <button

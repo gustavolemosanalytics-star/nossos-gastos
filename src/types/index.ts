@@ -22,6 +22,7 @@ export interface UserCard {
   color: string;
   closingDay: number;
   dueDay: number;
+  bestPurchaseDay?: number; // Melhor dia de compra (dia após o fechamento)
 }
 
 export interface Transaction {

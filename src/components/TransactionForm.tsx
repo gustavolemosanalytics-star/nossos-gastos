@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { TransactionType, PersonType } from '@/types';
+import type { TransactionType, PersonType, UserCard } from '@/types';
 import { expenseCategories, incomeCategories, persons, cards } from '@/data/categories';
 import { useTransactions } from '@/context/TransactionContext';
+import { useCards } from '@/context/CardContext';
 
 interface TransactionFormProps {
   type: TransactionType;
@@ -12,8 +13,45 @@ interface TransactionFormProps {
 
 type InstallmentInputMode = 'total' | 'perInstallment';
 
+// Função para calcular em qual fatura uma compra vai cair
+function getBillingInfo(purchaseDate: string, card: UserCard | undefined) {
+  if (!card) return null;
+
+  const purchase = new Date(purchaseDate + 'T12:00:00');
+  const purchaseDay = purchase.getDate();
+  const purchaseMonth = purchase.getMonth();
+  const purchaseYear = purchase.getFullYear();
+
+  // Se a compra foi antes do fechamento, vai para a fatura do mês atual
+  // Se a compra foi depois do fechamento, vai para a fatura do próximo mês
+  let billingMonth = purchaseMonth;
+  let billingYear = purchaseYear;
+
+  if (purchaseDay > card.closingDay) {
+    billingMonth += 1;
+    if (billingMonth > 11) {
+      billingMonth = 0;
+      billingYear += 1;
+    }
+  }
+
+  const billingDate = new Date(billingYear, billingMonth, card.dueDay);
+
+  // Verificar se é melhor dia de compra
+  const isBestDay = card.bestPurchaseDay ? purchaseDay >= card.bestPurchaseDay : purchaseDay > card.closingDay;
+
+  return {
+    billingMonth,
+    billingYear,
+    billingDate,
+    isBestDay,
+    goesToNextMonth: purchaseDay > card.closingDay,
+  };
+}
+
 export function TransactionForm({ type, onClose }: TransactionFormProps) {
   const { addTransaction, addInstallmentTransaction } = useTransactions();
+  const { userCards } = useCards();
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [categoryId, setCategoryId] = useState('');
@@ -24,6 +62,16 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
   const [installmentTotal, setInstallmentTotal] = useState('2');
   const [installmentInputMode, setInstallmentInputMode] = useState<InstallmentInputMode>('total');
   const [installmentAmount, setInstallmentAmount] = useState('');
+
+  // Encontrar o cartão selecionado (tanto dos cards fixos quanto dos userCards)
+  const selectedUserCard = useMemo(() => {
+    return userCards.find(c => c.id === cardId);
+  }, [cardId, userCards]);
+
+  // Calcular informações da fatura
+  const billingInfo = useMemo(() => {
+    return getBillingInfo(date, selectedUserCard);
+  }, [date, selectedUserCard]);
 
   // Cálculos para exibição
   const calculatedValues = useMemo(() => {
@@ -153,31 +201,87 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
           </div>
 
           {type === 'expense' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">
                 Cartão / Forma de pagamento
               </label>
-              <div className="grid grid-cols-3 gap-2">
-                {cards.map(card => (
-                  <button
-                    key={card.id}
-                    type="button"
-                    onClick={() => setCardId(card.id)}
-                    className={`flex items-center justify-center p-2 rounded-xl border-2 transition-all ${
-                      cardId === card.id
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-100 hover:border-gray-200'
-                    }`}
-                  >
-                    <span
-                      className="text-xs font-medium truncate"
-                      style={{ color: card.color }}
+
+              {/* Cartões cadastrados pelo usuário */}
+              {userCards.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-500">Meus cartões:</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {userCards.map(card => (
+                      <button
+                        key={card.id}
+                        type="button"
+                        onClick={() => setCardId(card.id)}
+                        className={`flex items-center justify-center p-3 rounded-xl border-2 transition-all ${
+                          cardId === card.id
+                            ? 'border-green-500 bg-green-50'
+                            : 'border-gray-100 hover:border-gray-200'
+                        }`}
+                      >
+                        <div
+                          className="w-3 h-3 rounded-full mr-2"
+                          style={{ backgroundColor: card.color }}
+                        />
+                        <span className="text-sm font-medium text-gray-700 truncate">
+                          {card.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Formas de pagamento fixas (Pix, Débito, etc) */}
+              <div className="space-y-2">
+                <p className="text-xs text-gray-500">Outras formas:</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {cards.filter(c => ['2', '3'].includes(c.id)).map(card => (
+                    <button
+                      key={card.id}
+                      type="button"
+                      onClick={() => setCardId(card.id)}
+                      className={`flex items-center justify-center p-2 rounded-xl border-2 transition-all ${
+                        cardId === card.id
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-gray-100 hover:border-gray-200'
+                      }`}
                     >
-                      {card.name}
-                    </span>
-                  </button>
-                ))}
+                      <span
+                        className="text-xs font-medium truncate"
+                        style={{ color: card.color }}
+                      >
+                        {card.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Informação da fatura */}
+              {billingInfo && selectedUserCard && (
+                <div className={`p-3 rounded-lg ${billingInfo.isBestDay ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'}`}>
+                  <div className="flex items-start gap-2">
+                    <span className="text-lg">{billingInfo.isBestDay ? '✨' : '📅'}</span>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        Fatura de {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(billingInfo.billingDate)}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        Vencimento: {new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(billingInfo.billingDate)}
+                      </p>
+                      {billingInfo.isBestDay && (
+                        <p className="text-xs text-green-600 font-medium mt-1">
+                          Melhor período de compra! Vai para a fatura do próximo mês.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

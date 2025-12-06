@@ -22,6 +22,7 @@ function fromDbFormat(row: Record<string, unknown>): UserCard {
     color: row.color as string,
     closingDay: Number(row.closing_day),
     dueDay: Number(row.due_day),
+    bestPurchaseDay: row.best_purchase_day ? Number(row.best_purchase_day) : undefined,
   };
 }
 
@@ -60,6 +61,7 @@ export function CardProvider({ children }: { children: ReactNode }) {
           color: card.color,
           closing_day: card.closingDay,
           due_day: card.dueDay,
+          best_purchase_day: card.bestPurchaseDay || null,
         }])
         .select()
         .single();
@@ -80,6 +82,7 @@ export function CardProvider({ children }: { children: ReactNode }) {
       if (data.color !== undefined) updateData.color = data.color;
       if (data.closingDay !== undefined) updateData.closing_day = data.closingDay;
       if (data.dueDay !== undefined) updateData.due_day = data.dueDay;
+      if (data.bestPurchaseDay !== undefined) updateData.best_purchase_day = data.bestPurchaseDay || null;
 
       const { error } = await supabase
         .from('nossos-gastos-user-cards')

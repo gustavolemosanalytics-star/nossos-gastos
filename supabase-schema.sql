@@ -41,9 +41,13 @@ CREATE TABLE "nossos-gastos-user-cards" (
   color TEXT NOT NULL DEFAULT '#22c55e',
   closing_day INTEGER NOT NULL CHECK (closing_day >= 1 AND closing_day <= 31),
   due_day INTEGER NOT NULL CHECK (due_day >= 1 AND due_day <= 31),
+  best_purchase_day INTEGER CHECK (best_purchase_day >= 1 AND best_purchase_day <= 31),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Migração: Adicionar coluna best_purchase_day se a tabela já existir
+-- ALTER TABLE "nossos-gastos-user-cards" ADD COLUMN IF NOT EXISTS best_purchase_day INTEGER CHECK (best_purchase_day >= 1 AND best_purchase_day <= 31);
 
 -- =============================================
 -- TABELA: nossos-gastos-investments (caixinhas)
