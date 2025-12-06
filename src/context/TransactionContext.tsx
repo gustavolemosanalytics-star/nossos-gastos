@@ -11,7 +11,8 @@ interface TransactionContextType {
   addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<void>;
   addInstallmentTransaction: (
     transaction: Omit<Transaction, 'id' | 'installmentCurrent' | 'installmentGroupId'>,
-    totalInstallments: number
+    totalInstallments: number,
+    customDates?: string[]
   ) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   deleteInstallmentGroup: (groupId: string) => Promise<void>;
@@ -99,10 +100,11 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
 
   const addInstallmentTransaction = async (
     transaction: Omit<Transaction, 'id' | 'installmentCurrent' | 'installmentGroupId'>,
-    totalInstallments: number
+    totalInstallments: number,
+    customDates?: string[]
   ) => {
     try {
-      const installments = generateInstallments(transaction, totalInstallments);
+      const installments = generateInstallments(transaction, totalInstallments, customDates);
       const dbInstallments = installments.map(inst => toDbFormat(inst));
 
       const { data, error } = await supabase

@@ -11,8 +11,6 @@ interface TransactionFormProps {
   onClose: () => void;
 }
 
-type InstallmentInputMode = 'total' | 'perInstallment';
-
 // Função para calcular em qual fatura uma compra vai cair
 function getBillingInfo(purchaseDate: string, card: UserCard | undefined) {
   if (!card) return null;
@@ -22,8 +20,8 @@ function getBillingInfo(purchaseDate: string, card: UserCard | undefined) {
   const purchaseMonth = purchase.getMonth();
   const purchaseYear = purchase.getFullYear();
 
-  // Se a compra foi antes do fechamento, vai para a fatura do mês atual
-  // Se a compra foi depois do fechamento, vai para a fatura do próximo mês
+  // Se a compra foi APÓS o fechamento, vai para a fatura do PRÓXIMO mês
+  // Exemplo: Fechamento dia 26, compra dia 27 -> vai para fatura do próximo mês
   let billingMonth = purchaseMonth;
   let billingYear = purchaseYear;
 
@@ -49,21 +47,66 @@ function getBillingInfo(purchaseDate: string, card: UserCard | undefined) {
   };
 }
 
+// Calcula a data de cada parcela baseada no fechamento do cartão
+function calculateInstallmentDates(
+  purchaseDate: string,
+  card: UserCard | undefined,
+  totalInstallments: number
+): string[] {
+  const dates: string[] = [];
+  const purchase = new Date(purchaseDate + 'T12:00:00');
+  const purchaseDay = purchase.getDate();
+  let startMonth = purchase.getMonth();
+  let startYear = purchase.getFullYear();
+
+  // Se passou do fechamento, a primeira parcela já vai pro próximo mês
+  if (card && purchaseDay > card.closingDay) {
+    startMonth += 1;
+    if (startMonth > 11) {
+      startMonth = 0;
+      startYear += 1;
+    }
+  }
+
+  for (let i = 0; i < totalInstallments; i++) {
+    let month = startMonth + i;
+    let year = startYear;
+
+    // Ajusta o ano se passar de dezembro
+    while (month > 11) {
+      month -= 12;
+      year += 1;
+    }
+
+    // Define o dia da fatura (vencimento) ou dia fixo para registro
+    const day = card ? card.dueDay : purchase.getDate();
+
+    // Cria a data e ajusta para o último dia do mês se necessário
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    const actualDay = Math.min(day, lastDayOfMonth);
+
+    const installmentDate = new Date(year, month, actualDay);
+    dates.push(installmentDate.toISOString().split('T')[0]);
+  }
+
+  return dates;
+}
+
 export function TransactionForm({ type, onClose }: TransactionFormProps) {
   const { addTransaction, addInstallmentTransaction } = useTransactions();
   const { userCards } = useCards();
   const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(''); // Valor à vista / total da compra
   const [categoryId, setCategoryId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [person, setPerson] = useState<PersonType>('nos');
   const [cardId, setCardId] = useState('');
   const [isInstallment, setIsInstallment] = useState(false);
   const [installmentTotal, setInstallmentTotal] = useState('2');
-  const [installmentInputMode, setInstallmentInputMode] = useState<InstallmentInputMode>('total');
-  const [installmentAmount, setInstallmentAmount] = useState('');
+  const [installmentAmount, setInstallmentAmount] = useState(''); // Valor de cada parcela (pode ter juros)
+  const [hasInterest, setHasInterest] = useState(false); // Se tem juros
 
-  // Encontrar o cartão selecionado (tanto dos cards fixos quanto dos userCards)
+  // Encontrar o cartão selecionado
   const selectedUserCard = useMemo(() => {
     return userCards.find(c => c.id === cardId);
   }, [cardId, userCards]);
@@ -73,43 +116,71 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
     return getBillingInfo(date, selectedUserCard);
   }, [date, selectedUserCard]);
 
+  // Calcular datas das parcelas
+  const installmentDates = useMemo(() => {
+    if (!isInstallment) return [];
+    return calculateInstallmentDates(date, selectedUserCard, parseInt(installmentTotal) || 2);
+  }, [date, selectedUserCard, isInstallment, installmentTotal]);
+
   // Cálculos para exibição
   const calculatedValues = useMemo(() => {
     const numInstallments = parseInt(installmentTotal) || 2;
+    const totalAmount = parseFloat(amount) || 0;
+    const perInstallmentAmount = parseFloat(installmentAmount) || 0;
 
-    if (installmentInputMode === 'total') {
-      const total = parseFloat(amount) || 0;
-      const perInstallment = total / numInstallments;
+    if (hasInterest && installmentAmount) {
+      // Com juros: usuário informa o valor de cada parcela
+      const totalWithInterest = perInstallmentAmount * numInstallments;
+      const interestAmount = totalWithInterest - totalAmount;
+      const interestPercent = totalAmount > 0 ? (interestAmount / totalAmount) * 100 : 0;
+
       return {
-        total,
-        perInstallment: perInstallment > 0 ? perInstallment : 0,
+        totalOriginal: totalAmount,
+        totalWithInterest,
+        perInstallment: perInstallmentAmount,
+        interestAmount,
+        interestPercent,
+        hasInterest: true,
       };
     } else {
-      const perInstallment = parseFloat(installmentAmount) || 0;
-      const total = perInstallment * numInstallments;
+      // Sem juros: divide o valor total
+      const perInstallment = totalAmount / numInstallments;
       return {
-        total: total > 0 ? total : 0,
-        perInstallment,
+        totalOriginal: totalAmount,
+        totalWithInterest: totalAmount,
+        perInstallment: perInstallment > 0 ? perInstallment : 0,
+        interestAmount: 0,
+        interestPercent: 0,
+        hasInterest: false,
       };
     }
-  }, [amount, installmentAmount, installmentTotal, installmentInputMode]);
+  }, [amount, installmentAmount, installmentTotal, hasInterest]);
 
   const categories = type === 'expense' ? expenseCategories : incomeCategories;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const formatMonth = (dateStr: string) => {
+    const d = new Date(dateStr + 'T12:00:00');
+    return new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit' }).format(d);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validação: precisa ter valor no campo correto
-    const hasAmount = installmentInputMode === 'total' ? amount : installmentAmount;
-    if (!description || !hasAmount || !categoryId || !person) return;
+    if (!description || !amount || !categoryId || !person) return;
 
-    // Usar o valor da parcela para salvar
-    const finalAmount = calculatedValues.perInstallment;
+    // Valor da parcela a ser lançado
+    const finalInstallmentAmount = hasInterest && installmentAmount
+      ? parseFloat(installmentAmount)
+      : calculatedValues.perInstallment;
 
     const transactionData = {
       type,
       description,
-      amount: isInstallment ? finalAmount : parseFloat(amount),
+      amount: isInstallment ? finalInstallmentAmount : parseFloat(amount),
       categoryId,
       date,
       person,
@@ -119,9 +190,14 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
     };
 
     if (isInstallment && type === 'expense') {
-      addInstallmentTransaction(transactionData, parseInt(installmentTotal));
+      // Passa as datas calculadas para a função de parcelas
+      await addInstallmentTransaction(
+        transactionData,
+        parseInt(installmentTotal),
+        installmentDates
+      );
     } else {
-      addTransaction(transactionData);
+      await addTransaction(transactionData);
     }
 
     onClose();
@@ -163,7 +239,7 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Valor (R$)
+              {isInstallment ? 'Valor total da compra (R$)' : 'Valor (R$)'}
             </label>
             <input
               type="number"
@@ -262,7 +338,7 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
               </div>
 
               {/* Informação da fatura */}
-              {billingInfo && selectedUserCard && (
+              {billingInfo && selectedUserCard && !isInstallment && (
                 <div className={`p-3 rounded-lg ${billingInfo.isBestDay ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'}`}>
                   <div className="flex items-start gap-2">
                     <span className="text-lg">{billingInfo.isBestDay ? '✨' : '📅'}</span>
@@ -312,7 +388,7 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Data
+              Data da compra
             </label>
             <input
               type="date"
@@ -353,37 +429,21 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Informar valor por:
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setInstallmentInputMode('total')}
-                        className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                          installmentInputMode === 'total'
-                            ? 'border-green-500 bg-green-50 text-green-700'
-                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                        }`}
-                      >
-                        Valor Total
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setInstallmentInputMode('perInstallment')}
-                        className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                          installmentInputMode === 'perInstallment'
-                            ? 'border-green-500 bg-green-50 text-green-700'
-                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                        }`}
-                      >
-                        Valor da Parcela
-                      </button>
-                    </div>
-                  </div>
+                  {/* Checkbox de juros */}
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={hasInterest}
+                      onChange={e => setHasInterest(e.target.checked)}
+                      className="w-5 h-5 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      Com juros (valor da parcela diferente)
+                    </span>
+                  </label>
 
-                  {installmentInputMode === 'perInstallment' && (
+                  {/* Campo de valor da parcela (quando tem juros) */}
+                  {hasInterest && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Valor de cada parcela (R$)
@@ -395,27 +455,69 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
                         placeholder="0,00"
                         step="0.01"
                         min="0"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all text-xl font-semibold"
+                        className="w-full px-4 py-3 rounded-xl border border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all text-xl font-semibold bg-amber-50"
                         required
                       />
                     </div>
                   )}
 
                   {/* Resumo dos valores */}
-                  <div className="bg-white p-3 rounded-lg border border-gray-200">
-                    <div className="flex justify-between items-center mb-2">
+                  <div className="bg-white p-3 rounded-lg border border-gray-200 space-y-2">
+                    <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Valor à vista:</span>
                       <span className="font-semibold text-gray-900">
-                        R$ {calculatedValues.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        R$ {formatCurrency(calculatedValues.totalOriginal)}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Valor de cada parcela:</span>
-                      <span className="font-semibold text-red-600">
-                        {parseInt(installmentTotal) || 2}x de R$ {calculatedValues.perInstallment.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+
+                    {calculatedValues.hasInterest && (
+                      <>
+                        <div className="flex justify-between items-center text-amber-600">
+                          <span className="text-sm">Juros ({calculatedValues.interestPercent.toFixed(1)}%):</span>
+                          <span className="font-semibold">
+                            + R$ {formatCurrency(calculatedValues.interestAmount)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center border-t pt-2">
+                          <span className="text-sm text-gray-600">Total parcelado:</span>
+                          <span className="font-semibold text-gray-900">
+                            R$ {formatCurrency(calculatedValues.totalWithInterest)}
+                          </span>
+                        </div>
+                      </>
+                    )}
+
+                    <div className="flex justify-between items-center border-t pt-2">
+                      <span className="text-sm text-gray-600">Parcelas:</span>
+                      <span className="font-bold text-red-600">
+                        {parseInt(installmentTotal) || 2}x de R$ {formatCurrency(calculatedValues.perInstallment)}
                       </span>
                     </div>
                   </div>
+
+                  {/* Preview das faturas */}
+                  {selectedUserCard && installmentDates.length > 0 && (
+                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                      <p className="text-sm font-medium text-blue-900 mb-2">
+                        📅 Parcelas por fatura:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {installmentDates.slice(0, 6).map((d, i) => (
+                          <span key={i} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            {i + 1}ª: {formatMonth(d)}
+                          </span>
+                        ))}
+                        {installmentDates.length > 6 && (
+                          <span className="text-xs text-blue-600">
+                            +{installmentDates.length - 6} mais
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-blue-600 mt-2">
+                        Fechamento dia {selectedUserCard.closingDay} • Vencimento dia {selectedUserCard.dueDay}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
