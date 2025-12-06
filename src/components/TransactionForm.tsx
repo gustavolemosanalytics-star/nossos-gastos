@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { TransactionType, PersonType } from '@/types';
 import { expenseCategories, incomeCategories, persons, cards } from '@/data/categories';
 import { useTransactions } from '@/context/TransactionContext';
@@ -9,6 +9,8 @@ interface TransactionFormProps {
   type: TransactionType;
   onClose: () => void;
 }
+
+type InstallmentInputMode = 'total' | 'perInstallment';
 
 export function TransactionForm({ type, onClose }: TransactionFormProps) {
   const { addTransaction, addInstallmentTransaction } = useTransactions();
@@ -20,18 +22,46 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
   const [cardId, setCardId] = useState('');
   const [isInstallment, setIsInstallment] = useState(false);
   const [installmentTotal, setInstallmentTotal] = useState('2');
+  const [installmentInputMode, setInstallmentInputMode] = useState<InstallmentInputMode>('total');
+  const [installmentAmount, setInstallmentAmount] = useState('');
+
+  // Cálculos para exibição
+  const calculatedValues = useMemo(() => {
+    const numInstallments = parseInt(installmentTotal) || 2;
+
+    if (installmentInputMode === 'total') {
+      const total = parseFloat(amount) || 0;
+      const perInstallment = total / numInstallments;
+      return {
+        total,
+        perInstallment: perInstallment > 0 ? perInstallment : 0,
+      };
+    } else {
+      const perInstallment = parseFloat(installmentAmount) || 0;
+      const total = perInstallment * numInstallments;
+      return {
+        total: total > 0 ? total : 0,
+        perInstallment,
+      };
+    }
+  }, [amount, installmentAmount, installmentTotal, installmentInputMode]);
 
   const categories = type === 'expense' ? expenseCategories : incomeCategories;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!description || !amount || !categoryId || !person) return;
+    // Validação: precisa ter valor no campo correto
+    const hasAmount = installmentInputMode === 'total' ? amount : installmentAmount;
+    if (!description || !hasAmount || !categoryId || !person) return;
+
+    // Usar o valor da parcela para salvar
+    const finalAmount = calculatedValues.perInstallment;
 
     const transactionData = {
       type,
       description,
-      amount: parseFloat(amount),
+      amount: isInstallment ? finalAmount : parseFloat(amount),
       categoryId,
       date,
       person,
@@ -204,18 +234,84 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
               </label>
 
               {isInstallment && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Número de parcelas
-                  </label>
-                  <input
-                    type="number"
-                    value={installmentTotal}
-                    onChange={e => setInstallmentTotal(e.target.value)}
-                    min="2"
-                    max="48"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all"
-                  />
+                <div className="space-y-4 p-4 bg-gray-50 rounded-xl">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Número de parcelas
+                    </label>
+                    <input
+                      type="number"
+                      value={installmentTotal}
+                      onChange={e => setInstallmentTotal(e.target.value)}
+                      min="2"
+                      max="48"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Informar valor por:
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setInstallmentInputMode('total')}
+                        className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                          installmentInputMode === 'total'
+                            ? 'border-green-500 bg-green-50 text-green-700'
+                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        Valor Total
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInstallmentInputMode('perInstallment')}
+                        className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                          installmentInputMode === 'perInstallment'
+                            ? 'border-green-500 bg-green-50 text-green-700'
+                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        Valor da Parcela
+                      </button>
+                    </div>
+                  </div>
+
+                  {installmentInputMode === 'perInstallment' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Valor de cada parcela (R$)
+                      </label>
+                      <input
+                        type="number"
+                        value={installmentAmount}
+                        onChange={e => setInstallmentAmount(e.target.value)}
+                        placeholder="0,00"
+                        step="0.01"
+                        min="0"
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all text-xl font-semibold"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {/* Resumo dos valores */}
+                  <div className="bg-white p-3 rounded-lg border border-gray-200">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-gray-600">Valor à vista:</span>
+                      <span className="font-semibold text-gray-900">
+                        R$ {calculatedValues.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Valor de cada parcela:</span>
+                      <span className="font-semibold text-red-600">
+                        {parseInt(installmentTotal) || 2}x de R$ {calculatedValues.perInstallment.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
