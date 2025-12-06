@@ -16,6 +16,14 @@ export interface Card {
   color: string;
 }
 
+export interface UserCard {
+  id: string;
+  name: string;
+  color: string;
+  closingDay: number;
+  dueDay: number;
+}
+
 export interface Transaction {
   id: string;
   type: TransactionType;

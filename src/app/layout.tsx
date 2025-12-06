@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { TransactionProvider } from '@/context/TransactionContext';
 import { InvestmentProvider } from '@/context/InvestmentContext';
+import { CardProvider } from '@/context/CardContext';
 import { BottomNav } from '@/components/BottomNav';
 import './globals.css';
 
@@ -28,10 +29,12 @@ export default function RootLayout({
       <body className="min-h-screen bg-slate-100">
         <TransactionProvider>
           <InvestmentProvider>
-            <main className="pb-20">
-              {children}
-            </main>
-            <BottomNav />
+            <CardProvider>
+              <main className="pb-20">
+                {children}
+              </main>
+              <BottomNav />
+            </CardProvider>
           </InvestmentProvider>
         </TransactionProvider>
       </body>
