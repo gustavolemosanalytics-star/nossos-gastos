@@ -37,3 +37,19 @@ export interface FinancialSummary {
   balance: number;
   upcomingInstallments: Transaction[];
 }
+
+export interface InvestmentTransaction {
+  id: string;
+  amount: number;
+  date: string;
+  type: 'deposit' | 'withdraw';
+}
+
+export interface Investment {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  goal?: number;
+  transactions: InvestmentTransaction[];
+}

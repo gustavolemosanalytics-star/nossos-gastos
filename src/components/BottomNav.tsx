@@ -7,6 +7,7 @@ const tabs = [
   { id: '/', label: 'Início', icon: '🏠' },
   { id: '/transacoes', label: 'Transações', icon: '📋' },
   { id: '/parcelas', label: 'Parcelas', icon: '📅' },
+  { id: '/investimentos', label: 'Caixinhas', icon: '🐷' },
 ];
 
 export function BottomNav() {
