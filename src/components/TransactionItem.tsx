@@ -1,7 +1,7 @@
 'use client';
 
 import type { Transaction } from '@/types';
-import { defaultCategories } from '@/data/categories';
+import { defaultCategories, persons, cards } from '@/data/categories';
 import { formatCurrency, formatShortDate } from '@/utils/formatters';
 
 interface TransactionItemProps {
@@ -12,6 +12,8 @@ interface TransactionItemProps {
 
 export function TransactionItem({ transaction, onDelete, onDeleteGroup }: TransactionItemProps) {
   const category = defaultCategories.find(c => c.id === transaction.categoryId);
+  const person = persons.find(p => p.id === transaction.person);
+  const card = cards.find(c => c.id === transaction.cardId);
 
   const handleDelete = () => {
     if (transaction.isInstallment && transaction.installmentGroupId && onDeleteGroup) {
@@ -39,8 +41,22 @@ export function TransactionItem({ transaction, onDelete, onDeleteGroup }: Transa
         <p className="font-medium text-gray-900 truncate">
           {transaction.description}
         </p>
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
           <span>{formatShortDate(transaction.date)}</span>
+          {person && (
+            <span className="flex items-center gap-1">
+              <span>{person.icon}</span>
+              <span>{person.name}</span>
+            </span>
+          )}
+          {card && (
+            <span
+              className="px-2 py-0.5 rounded-full text-white"
+              style={{ backgroundColor: card.color }}
+            >
+              {card.name}
+            </span>
+          )}
           {transaction.isInstallment && (
             <span className="bg-gray-100 px-2 py-0.5 rounded-full">
               {transaction.installmentCurrent}/{transaction.installmentTotal}
