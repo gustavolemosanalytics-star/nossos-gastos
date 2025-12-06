@@ -7,17 +7,11 @@ export const persons: { id: PersonType; name: string; icon: string; color: strin
 ];
 
 export const cards: Card[] = [
-  { id: '1', name: 'Nubank', lastDigits: '', color: '#8b5cf6' },
-  { id: '2', name: 'Inter', lastDigits: '', color: '#f97316' },
-  { id: '3', name: 'C6 Bank', lastDigits: '', color: '#1f2937' },
-  { id: '4', name: 'Itaú', lastDigits: '', color: '#f97316' },
-  { id: '5', name: 'Bradesco', lastDigits: '', color: '#ef4444' },
-  { id: '6', name: 'Santander', lastDigits: '', color: '#ef4444' },
-  { id: '7', name: 'Caixa', lastDigits: '', color: '#3b82f6' },
-  { id: '8', name: 'BB', lastDigits: '', color: '#fbbf24' },
-  { id: '9', name: 'Dinheiro', lastDigits: '', color: '#22c55e' },
-  { id: '10', name: 'Pix', lastDigits: '', color: '#06b6d4' },
-  { id: '11', name: 'Outro', lastDigits: '', color: '#64748b' },
+  { id: '1', name: 'Sicoob', lastDigits: '', color: '#22c55e' },
+  { id: '2', name: 'Pix', lastDigits: '', color: '#06b6d4' },
+  { id: '3', name: 'Débito', lastDigits: '', color: '#64748b' },
+  { id: '4', name: 'Nubank', lastDigits: '', color: '#8b5cf6' },
+  { id: '5', name: 'Banco do Brasil', lastDigits: '', color: '#fbbf24' },
 ];
 
 export const defaultCategories: Category[] = [
