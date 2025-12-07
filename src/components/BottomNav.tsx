@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 
 const tabs = [
   { id: '/', label: 'Início', icon: '🏠' },
+  { id: '/faturas', label: 'Faturas', icon: '📅' },
   { id: '/transacoes', label: 'Transações', icon: '📋' },
   { id: '/cartoes', label: 'Cartões', icon: '💳' },
   { id: '/investimentos', label: 'Caixinhas', icon: '🐷' },
