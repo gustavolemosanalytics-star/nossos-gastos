@@ -189,12 +189,20 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
     // Determina o cardId final (cartão cadastrado ou forma de pagamento)
     const finalCardId = cardId || paymentMethod || undefined;
 
+    // Para cartão de crédito, usa a data do vencimento da fatura
+    // Para outras formas (Pix, Débito, Dinheiro), usa a data da compra
+    let transactionDate = date;
+    if (isCreditCardSelected && billingInfo && !isInstallment) {
+      // Compra à vista no cartão: registra na data do vencimento da fatura
+      transactionDate = billingInfo.billingDate.toISOString().split('T')[0];
+    }
+
     const transactionData = {
       type,
       description,
       amount: isInstallment ? finalInstallmentAmount : parseFloat(amount),
       categoryId,
-      date,
+      date: transactionDate,
       person,
       cardId: finalCardId,
       isInstallment,
