@@ -19,6 +19,10 @@ const otherPaymentMethods = [
 ];
 
 // Função para calcular em qual fatura uma compra vai cair
+// A fatura é identificada pelo mês de VENCIMENTO (quando é paga), não pelo mês de fechamento
+// Exemplo: Compra dia 07/12, fecha dia 26, vence dia 05
+// - Fatura fecha em 26/12 e vence em 05/01 → fatura de JANEIRO
+// - Compra APÓS dia 26/12 vai para fatura que fecha em 26/01, vence 05/02 → fatura de FEVEREIRO
 function getBillingInfo(purchaseDate: string, card: UserCard | undefined) {
   if (!card) return null;
 
@@ -27,21 +31,26 @@ function getBillingInfo(purchaseDate: string, card: UserCard | undefined) {
   const purchaseMonth = purchase.getMonth();
   const purchaseYear = purchase.getFullYear();
 
-  // Se a compra foi APÓS o fechamento, vai para a fatura do PRÓXIMO mês
-  let billingMonth = purchaseMonth;
+  // A fatura sempre vence no mês SEGUINTE ao fechamento
+  // Se comprou ANTES ou NO dia do fechamento: fatura vence no próximo mês
+  // Se comprou APÓS o fechamento: fatura vence em 2 meses
+  let billingMonth = purchaseMonth + 1; // Sempre pelo menos 1 mês à frente (mês do vencimento)
   let billingYear = purchaseYear;
 
+  // Se a compra foi APÓS o fechamento, adiciona mais 1 mês
   if (purchaseDay > card.closingDay) {
     billingMonth += 1;
-    if (billingMonth > 11) {
-      billingMonth = 0;
-      billingYear += 1;
-    }
+  }
+
+  // Ajusta o ano se passar de dezembro
+  while (billingMonth > 11) {
+    billingMonth -= 12;
+    billingYear += 1;
   }
 
   const billingDate = new Date(billingYear, billingMonth, card.dueDay);
 
-  // Verificar se é melhor dia de compra
+  // Verificar se é melhor dia de compra (logo após fechamento = mais tempo para pagar)
   const isBestDay = card.bestPurchaseDay ? purchaseDay >= card.bestPurchaseDay : purchaseDay > card.closingDay;
 
   return {
@@ -54,6 +63,11 @@ function getBillingInfo(purchaseDate: string, card: UserCard | undefined) {
 }
 
 // Calcula a data de cada parcela baseada no fechamento do cartão
+// A primeira parcela sempre vai para o mês de VENCIMENTO da fatura atual
+// Exemplo: Compra 07/12, fecha 26, vence 05
+// - 1ª parcela: Janeiro 2025 (fatura vence 05/01)
+// - 2ª parcela: Fevereiro 2025 (fatura vence 05/02)
+// - etc.
 function calculateInstallmentDates(
   purchaseDate: string,
   card: UserCard | undefined,
@@ -62,16 +76,20 @@ function calculateInstallmentDates(
   const dates: string[] = [];
   const purchase = new Date(purchaseDate + 'T12:00:00');
   const purchaseDay = purchase.getDate();
-  let startMonth = purchase.getMonth();
+
+  // Começa no mês SEGUINTE (mês do vencimento da fatura)
+  let startMonth = purchase.getMonth() + 1;
   let startYear = purchase.getFullYear();
 
-  // Se passou do fechamento, a primeira parcela já vai pro próximo mês
+  // Se passou do fechamento, a primeira parcela vai pro mês seguinte ao vencimento
   if (card && purchaseDay > card.closingDay) {
     startMonth += 1;
-    if (startMonth > 11) {
-      startMonth = 0;
-      startYear += 1;
-    }
+  }
+
+  // Ajusta o ano se passar de dezembro
+  while (startMonth > 11) {
+    startMonth -= 12;
+    startYear += 1;
   }
 
   for (let i = 0; i < totalInstallments; i++) {
