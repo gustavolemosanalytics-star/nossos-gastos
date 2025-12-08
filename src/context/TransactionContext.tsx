@@ -14,6 +14,7 @@ interface TransactionContextType {
     totalInstallments: number,
     customDates?: string[]
   ) => Promise<void>;
+  updateTransaction: (id: string, data: Partial<Omit<Transaction, 'id'>>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   deleteInstallmentGroup: (groupId: string) => Promise<void>;
 }
@@ -122,6 +123,36 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateTransaction = async (id: string, data: Partial<Omit<Transaction, 'id'>>) => {
+    try {
+      const updateData: Record<string, unknown> = {};
+      if (data.type !== undefined) updateData.type = data.type;
+      if (data.description !== undefined) updateData.description = data.description;
+      if (data.amount !== undefined) updateData.amount = data.amount;
+      if (data.categoryId !== undefined) updateData.category_id = data.categoryId;
+      if (data.date !== undefined) updateData.date = data.date;
+      if (data.person !== undefined) updateData.person = data.person;
+      if (data.cardId !== undefined) updateData.card_id = data.cardId || null;
+      if (data.isInstallment !== undefined) updateData.is_installment = data.isInstallment;
+      if (data.installmentCurrent !== undefined) updateData.installment_current = data.installmentCurrent;
+      if (data.installmentTotal !== undefined) updateData.installment_total = data.installmentTotal;
+
+      const { error } = await supabase
+        .from('nossos-gastos-transactions')
+        .update(updateData)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setTransactions(prev =>
+        prev.map(t => (t.id === id ? { ...t, ...data } : t))
+      );
+    } catch (error) {
+      console.error('Erro ao atualizar transação:', error);
+      throw error;
+    }
+  };
+
   const deleteTransaction = async (id: string) => {
     try {
       const { error } = await supabase
@@ -161,6 +192,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         loading,
         addTransaction,
         addInstallmentTransaction,
+        updateTransaction,
         deleteTransaction,
         deleteInstallmentGroup,
       }}

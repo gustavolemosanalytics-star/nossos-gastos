@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { TransactionProvider } from '@/context/TransactionContext';
 import { InvestmentProvider } from '@/context/InvestmentContext';
 import { CardProvider } from '@/context/CardContext';
+import { SalaryProvider } from '@/context/SalaryContext';
 import { BottomNav } from '@/components/BottomNav';
 import './globals.css';
 
@@ -30,10 +31,12 @@ export default function RootLayout({
         <TransactionProvider>
           <InvestmentProvider>
             <CardProvider>
-              <main className="pb-20">
-                {children}
-              </main>
-              <BottomNav />
+              <SalaryProvider>
+                <main className="pb-20">
+                  {children}
+                </main>
+                <BottomNav />
+              </SalaryProvider>
             </CardProvider>
           </InvestmentProvider>
         </TransactionProvider>

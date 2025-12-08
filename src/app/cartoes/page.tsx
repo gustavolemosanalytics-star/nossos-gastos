@@ -1,14 +1,24 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useCards } from '@/context/CardContext';
+import { useSalaries } from '@/context/SalaryContext';
 
 const defaultColors = ['#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#06b6d4', '#ef4444', '#fbbf24'];
 
 export default function Cartoes() {
   const { userCards, addCard, updateCard, deleteCard } = useCards();
+  const { salaries } = useSalaries();
   const [showNewForm, setShowNewForm] = useState(false);
   const [editingCard, setEditingCard] = useState<string | null>(null);
+
+  const totalSalary = salaries
+    .filter(s => s.isActive)
+    .reduce((sum, s) => sum + s.amount, 0);
+
+  const formatCurrency = (value: number) =>
+    value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   // Form state
   const [name, setName] = useState('');
@@ -113,15 +123,38 @@ export default function Cartoes() {
   };
 
   return (
-    <div className="flex-1">
+    <div className="flex-1 pb-20">
       <div className="bg-green-600 text-white px-4 py-6">
-        <h1 className="text-xl font-bold mb-2">Meus Cartões</h1>
+        <h1 className="text-xl font-bold mb-2">Configurações</h1>
         <p className="text-green-100 text-sm">
-          Gerencie vencimentos e fechamentos
+          Cartões e salários
         </p>
       </div>
 
       <div className="p-4">
+        {/* Link para Salários */}
+        <Link
+          href="/salarios"
+          className="flex items-center justify-between p-4 bg-blue-50 rounded-xl border border-blue-200 mb-4"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">💰</span>
+            <div>
+              <p className="font-semibold text-gray-900">Salários</p>
+              <p className="text-sm text-gray-500">
+                {salaries.length === 0
+                  ? 'Nenhum cadastrado'
+                  : `${salaries.filter(s => s.isActive).length} ativo(s) • ${formatCurrency(totalSalary)}/mês`}
+              </p>
+            </div>
+          </div>
+          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+
+        <h2 className="text-lg font-bold text-gray-900 mb-3">Cartões de Crédito</h2>
+
         <button
           onClick={() => {
             resetForm();

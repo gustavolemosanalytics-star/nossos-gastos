@@ -132,3 +132,22 @@ CREATE TRIGGER update_ng_investments_updated_at
   BEFORE UPDATE ON "nossos-gastos-investments"
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- =============================================
+-- TABELA: nossos-gastos-salaries (salários recorrentes)
+-- =============================================
+CREATE TABLE "nossos-gastos-salaries" (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  person TEXT NOT NULL CHECK (person IN ('amanda', 'gustavo')),
+  description TEXT NOT NULL,
+  amount DECIMAL(10, 2) NOT NULL,
+  due_day INTEGER NOT NULL CHECK (due_day >= 1 AND due_day <= 31),
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TRIGGER update_ng_salaries_updated_at
+  BEFORE UPDATE ON "nossos-gastos-salaries"
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();

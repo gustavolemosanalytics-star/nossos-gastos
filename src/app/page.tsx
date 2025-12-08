@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useTransactions } from '@/context/TransactionContext';
+import { useSalaries } from '@/context/SalaryContext';
 import { SummaryCard } from '@/components/SummaryCard';
 import { TransactionItem } from '@/components/TransactionItem';
 import { MonthSelector } from '@/components/MonthSelector';
@@ -13,6 +14,7 @@ import type { TransactionType } from '@/types';
 
 export default function Dashboard() {
   const { transactions, deleteTransaction, deleteInstallmentGroup } = useTransactions();
+  const { salaries, getTotalSalaryForMonth } = useSalaries();
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
   const [formType, setFormType] = useState<TransactionType | null>(null);
 
@@ -22,6 +24,17 @@ export default function Dashboard() {
     () => calculateSummary(transactions, currentMonth, nextMonth),
     [transactions, currentMonth, nextMonth]
   );
+
+  // Total de salários esperados para o mês
+  const expectedSalary = useMemo(
+    () => getTotalSalaryForMonth(currentMonth),
+    [getTotalSalaryForMonth, currentMonth]
+  );
+
+  // Saldo projetado (considerando salários + ganhos - gastos)
+  const projectedBalance = useMemo(() => {
+    return expectedSalary + summary.totalIncome - summary.totalExpenses;
+  }, [expectedSalary, summary.totalIncome, summary.totalExpenses]);
 
   const recentTransactions = useMemo(() => {
     return transactions
@@ -45,6 +58,8 @@ export default function Dashboard() {
           totalIncome={summary.totalIncome}
           totalExpenses={summary.totalExpenses}
           balance={summary.balance}
+          expectedSalary={expectedSalary}
+          projectedBalance={projectedBalance}
         />
 
         {summary.upcomingInstallments.length > 0 && (
