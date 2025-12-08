@@ -277,7 +277,7 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Valor à vista (R$)
+              {type === 'expense' ? 'Valor à vista (R$)' : 'Valor (R$)'}
             </label>
             <input
               type="number"
@@ -293,7 +293,7 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Quem gastou?
+              {type === 'expense' ? 'Quem gastou?' : 'Quem recebeu?'}
             </label>
             <div className="flex gap-2">
               {persons.map(p => (
@@ -433,7 +433,7 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Data da compra
+              {type === 'expense' ? 'Data da compra' : 'Data do recebimento'}
             </label>
             <input
               type="date"
