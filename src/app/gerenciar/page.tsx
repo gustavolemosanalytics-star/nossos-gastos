@@ -28,6 +28,7 @@ export default function Gerenciar() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | TransactionType>('all');
+  const [filterCard, setFilterCard] = useState<string>('all'); // 'all', 'none', ou cardId
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'spreadsheet'>('list');
 
@@ -149,12 +150,17 @@ export default function Gerenciar() {
     return transactions
       .filter(t => t.date.startsWith(currentMonth))
       .filter(t => filterType === 'all' || t.type === filterType)
+      .filter(t => {
+        if (filterCard === 'all') return true;
+        if (filterCard === 'none') return !t.cardId || !userCards.find(c => c.id === t.cardId);
+        return t.cardId === filterCard;
+      })
       .filter(t =>
         searchTerm === '' ||
         t.description.toLowerCase().includes(searchTerm.toLowerCase())
       )
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [transactions, currentMonth, filterType, searchTerm]);
+  }, [transactions, currentMonth, filterType, filterCard, searchTerm, userCards]);
 
   const allCategories = [...expenseCategories, ...incomeCategories];
 
@@ -343,7 +349,7 @@ export default function Gerenciar() {
               onChange={e => setSearchTerm(e.target.value)}
               className="w-full px-4 py-2 rounded-lg border border-gray-200 text-sm"
             />
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {[
                 { value: 'all', label: 'Todos' },
                 { value: 'expense', label: 'Gastos' },
@@ -365,6 +371,49 @@ export default function Gerenciar() {
                 {filteredTransactions.length} registros
               </span>
             </div>
+
+            {/* Filtro por Cartão */}
+            {userCards.length > 0 && (
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setFilterCard('all')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    filterCard === 'all'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  Todos
+                </button>
+                {userCards.map(card => (
+                  <button
+                    key={card.id}
+                    onClick={() => setFilterCard(card.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1 ${
+                      filterCard === card.id
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: filterCard === card.id ? 'white' : card.color }}
+                    />
+                    {card.name}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setFilterCard('none')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    filterCard === 'none'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  Sem cartão
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Lista de transações */}
