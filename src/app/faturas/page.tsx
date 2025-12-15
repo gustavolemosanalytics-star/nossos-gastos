@@ -124,13 +124,27 @@ function LineChart({
                 strokeLinejoin="round"
               />
               {data[datasetIndex].map((value, i) => (
-                <circle
-                  key={i}
-                  cx={getX(i, labels.length)}
-                  cy={getY(value)}
-                  r="1.5"
-                  fill={dataset.color}
-                />
+                <g key={i}>
+                  <circle
+                    cx={getX(i, labels.length)}
+                    cy={getY(value)}
+                    r="1.5"
+                    fill={dataset.color}
+                  />
+                  {/* Rótulo de dados */}
+                  {value > 0 && (
+                    <text
+                      x={getX(i, labels.length)}
+                      y={getY(value) - 3}
+                      fontSize="2.5"
+                      fill={dataset.color}
+                      textAnchor="middle"
+                      fontWeight="bold"
+                    >
+                      {formatValue(value)}
+                    </text>
+                  )}
+                </g>
               ))}
             </g>
           );
