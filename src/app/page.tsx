@@ -13,7 +13,7 @@ import { getCurrentMonth, getNextMonth, formatCurrency } from '@/utils/formatter
 import type { TransactionType } from '@/types';
 
 export default function Dashboard() {
-  const { transactions, deleteTransaction, deleteInstallmentGroup } = useTransactions();
+  const { transactions, loading, deleteTransaction, deleteInstallmentGroup } = useTransactions();
   const { salaries, getTotalSalaryForMonth } = useSalaries();
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
   const [formType, setFormType] = useState<TransactionType | null>(null);
@@ -80,7 +80,12 @@ export default function Dashboard() {
             <h2 className="text-lg font-bold text-gray-900">Últimas transações</h2>
           </div>
 
-          {recentTransactions.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
+              <p>Carregando...</p>
+            </div>
+          ) : recentTransactions.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <span className="text-4xl mb-2 block">📊</span>
               <p>Nenhuma transação este mês</p>

@@ -5,6 +5,7 @@ import type { TransactionType, PersonType, UserCard } from '@/types';
 import { expenseCategories, incomeCategories, persons } from '@/data/categories';
 import { useTransactions } from '@/context/TransactionContext';
 import { useCards } from '@/context/CardContext';
+import { useToast } from '@/context/ToastContext';
 
 interface TransactionFormProps {
   type: TransactionType;
@@ -119,6 +120,7 @@ function calculateInstallmentDates(
 export function TransactionForm({ type, onClose }: TransactionFormProps) {
   const { addTransaction, addInstallmentTransaction } = useTransactions();
   const { userCards } = useCards();
+  const { showToast } = useToast();
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState(''); // Valor à vista
   const [categoryId, setCategoryId] = useState('');
@@ -227,18 +229,27 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
       installmentTotal: isInstallment ? parseInt(installmentTotal) : undefined,
     };
 
-    if (isInstallment && type === 'expense' && isCreditCardSelected) {
-      // Passa as datas calculadas para a função de parcelas
-      await addInstallmentTransaction(
-        transactionData,
-        parseInt(installmentTotal),
-        installmentDates
-      );
-    } else {
-      await addTransaction(transactionData);
+    try {
+      if (isInstallment && type === 'expense' && isCreditCardSelected) {
+        // Passa as datas calculadas para a função de parcelas
+        await addInstallmentTransaction(
+          transactionData,
+          parseInt(installmentTotal),
+          installmentDates
+        );
+        showToast(`Parcelamento de ${parseInt(installmentTotal)}x adicionado com sucesso!`, 'success');
+      } else {
+        await addTransaction(transactionData);
+        showToast(
+          type === 'expense' ? 'Gasto adicionado com sucesso!' : 'Ganho adicionado com sucesso!',
+          'success'
+        );
+      }
+      onClose();
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+      showToast('Erro ao salvar. Tente novamente.', 'error');
     }
-
-    onClose();
   };
 
   return (
