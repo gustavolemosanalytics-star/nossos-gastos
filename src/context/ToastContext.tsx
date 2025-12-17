@@ -53,12 +53,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ showToast }}>
       {children}
 
-      {/* Toast container */}
-      <div className="fixed top-4 left-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
+      {/* Toast container - positioned above bottom nav */}
+      <div className="fixed bottom-24 left-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
         {toasts.map(toast => (
           <div
             key={toast.id}
-            className={`${getBgColor(toast.type)} text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-slide-down pointer-events-auto`}
+            className={`${getBgColor(toast.type)} text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-slide-up pointer-events-auto`}
           >
             <span>{getIcon(toast.type)}</span>
             <span className="font-medium">{toast.message}</span>
