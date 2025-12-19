@@ -3,6 +3,7 @@ import { TransactionProvider } from '@/context/TransactionContext';
 import { InvestmentProvider } from '@/context/InvestmentContext';
 import { CardProvider } from '@/context/CardContext';
 import { SalaryProvider } from '@/context/SalaryContext';
+import { RecurringProvider } from '@/context/RecurringContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { BottomNav } from '@/components/BottomNav';
 import './globals.css';
@@ -38,10 +39,12 @@ export default function RootLayout({
             <InvestmentProvider>
               <CardProvider>
                 <SalaryProvider>
-                  <main className="pb-20">
-                    {children}
-                  </main>
-                  <BottomNav />
+                  <RecurringProvider>
+                    <main className="pb-20">
+                      {children}
+                    </main>
+                    <BottomNav />
+                  </RecurringProvider>
                 </SalaryProvider>
               </CardProvider>
             </InvestmentProvider>

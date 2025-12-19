@@ -151,3 +151,28 @@ CREATE TRIGGER update_ng_salaries_updated_at
   BEFORE UPDATE ON "nossos-gastos-salaries"
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- =============================================
+-- TABELA: nossos-gastos-recurring (gastos e ganhos recorrentes)
+-- =============================================
+CREATE TABLE "nossos-gastos-recurring" (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  type TEXT NOT NULL CHECK (type IN ('expense', 'income')),
+  description TEXT NOT NULL,
+  amount DECIMAL(10, 2) NOT NULL,
+  category_id TEXT NOT NULL,
+  person TEXT NOT NULL CHECK (person IN ('amanda', 'gustavo', 'nos')),
+  card_id TEXT,
+  day_of_month INTEGER NOT NULL CHECK (day_of_month >= 1 AND day_of_month <= 31),
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_ng_recurring_type ON "nossos-gastos-recurring"(type);
+CREATE INDEX idx_ng_recurring_is_active ON "nossos-gastos-recurring"(is_active);
+
+CREATE TRIGGER update_ng_recurring_updated_at
+  BEFORE UPDATE ON "nossos-gastos-recurring"
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();

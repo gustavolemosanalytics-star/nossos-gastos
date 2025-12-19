@@ -6,9 +6,9 @@ import { usePathname } from 'next/navigation';
 const tabs = [
   { id: '/', label: 'Início', icon: '🏠' },
   { id: '/faturas', label: 'Faturas', icon: '📅' },
+  { id: '/recorrentes', label: 'Fixos', icon: '🔄' },
   { id: '/gerenciar', label: 'Gerenciar', icon: '✏️' },
   { id: '/cartoes', label: 'Cartões', icon: '💳' },
-  { id: '/investimentos', label: 'Caixinhas', icon: '🐷' },
 ];
 
 export function BottomNav() {

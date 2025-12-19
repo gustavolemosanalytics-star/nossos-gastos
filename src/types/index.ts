@@ -71,3 +71,15 @@ export interface Salary {
   dueDay: number; // Dia limite para receber
   isActive: boolean;
 }
+
+export interface RecurringTransaction {
+  id: string;
+  type: TransactionType;
+  description: string;
+  amount: number;
+  categoryId: string;
+  person: PersonType;
+  cardId?: string;
+  dayOfMonth: number; // Dia do mês que se repete
+  isActive: boolean;
+}

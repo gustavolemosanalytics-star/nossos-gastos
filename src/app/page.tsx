@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useTransactions } from '@/context/TransactionContext';
 import { useSalaries } from '@/context/SalaryContext';
+import { useRecurring } from '@/context/RecurringContext';
 import { SummaryCard } from '@/components/SummaryCard';
 import { TransactionItem } from '@/components/TransactionItem';
 import { MonthSelector } from '@/components/MonthSelector';
@@ -14,7 +15,8 @@ import type { TransactionType } from '@/types';
 
 export default function Dashboard() {
   const { transactions, loading, deleteTransaction, deleteInstallmentGroup } = useTransactions();
-  const { salaries, getTotalSalaryForMonth } = useSalaries();
+  const { getTotalSalaryForMonth } = useSalaries();
+  const { getTotalRecurringExpensesForMonth, getTotalRecurringIncomeForMonth } = useRecurring();
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
   const [formType, setFormType] = useState<TransactionType | null>(null);
 
@@ -31,10 +33,21 @@ export default function Dashboard() {
     [getTotalSalaryForMonth, currentMonth]
   );
 
-  // Saldo projetado (considerando salários + ganhos - gastos)
+  // Totais recorrentes
+  const recurringExpenses = useMemo(
+    () => getTotalRecurringExpensesForMonth(currentMonth),
+    [getTotalRecurringExpensesForMonth, currentMonth]
+  );
+
+  const recurringIncome = useMemo(
+    () => getTotalRecurringIncomeForMonth(currentMonth),
+    [getTotalRecurringIncomeForMonth, currentMonth]
+  );
+
+  // Saldo projetado (considerando salários + ganhos + recorrentes - gastos - gastos recorrentes)
   const projectedBalance = useMemo(() => {
-    return expectedSalary + summary.totalIncome - summary.totalExpenses;
-  }, [expectedSalary, summary.totalIncome, summary.totalExpenses]);
+    return expectedSalary + summary.totalIncome + recurringIncome - summary.totalExpenses - recurringExpenses;
+  }, [expectedSalary, summary.totalIncome, recurringIncome, summary.totalExpenses, recurringExpenses]);
 
   const recentTransactions = useMemo(() => {
     return transactions
@@ -60,6 +73,8 @@ export default function Dashboard() {
           balance={summary.balance}
           expectedSalary={expectedSalary}
           projectedBalance={projectedBalance}
+          recurringExpenses={recurringExpenses}
+          recurringIncome={recurringIncome}
         />
 
         {summary.upcomingInstallments.length > 0 && (

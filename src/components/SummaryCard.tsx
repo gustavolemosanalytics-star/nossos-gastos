@@ -6,6 +6,8 @@ interface SummaryCardProps {
   balance: number;
   expectedSalary?: number;
   projectedBalance?: number;
+  recurringExpenses?: number;
+  recurringIncome?: number;
 }
 
 export function SummaryCard({
@@ -14,9 +16,14 @@ export function SummaryCard({
   balance,
   expectedSalary = 0,
   projectedBalance,
+  recurringExpenses = 0,
+  recurringIncome = 0,
 }: SummaryCardProps) {
-  const totalEntradas = expectedSalary + totalIncome;
+  const totalEntradas = expectedSalary + totalIncome + recurringIncome;
+  const totalSaidas = totalExpenses + recurringExpenses;
   const saldoFinal = projectedBalance ?? balance;
+
+  const hasRecurring = recurringExpenses > 0 || recurringIncome > 0;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm p-5 mx-4 -mt-4">
@@ -48,7 +55,7 @@ export function SummaryCard({
             <span className="text-xs text-gray-500">Ganhos</span>
           </div>
           <p className="text-sm font-semibold text-green-600">
-            {formatCurrency(totalIncome)}
+            {formatCurrency(totalIncome + recurringIncome)}
           </p>
         </div>
 
@@ -59,10 +66,24 @@ export function SummaryCard({
             <span className="text-xs text-gray-500">Gastos</span>
           </div>
           <p className="text-sm font-semibold text-red-500">
-            {formatCurrency(totalExpenses)}
+            {formatCurrency(totalSaidas)}
           </p>
         </div>
       </div>
+
+      {/* Detalhes dos recorrentes */}
+      {hasRecurring && (
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <div className="flex justify-between text-xs text-gray-500">
+            <span>Fixos inclusos:</span>
+            <span>
+              {recurringIncome > 0 && <span className="text-green-600">+{formatCurrency(recurringIncome)}</span>}
+              {recurringIncome > 0 && recurringExpenses > 0 && ' / '}
+              {recurringExpenses > 0 && <span className="text-red-500">-{formatCurrency(recurringExpenses)}</span>}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Resumo detalhado quando tem salário */}
       {expectedSalary > 0 && (
