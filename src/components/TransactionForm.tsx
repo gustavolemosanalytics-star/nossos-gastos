@@ -6,6 +6,7 @@ import { expenseCategories, incomeCategories, persons } from '@/data/categories'
 import { useTransactions } from '@/context/TransactionContext';
 import { useCards } from '@/context/CardContext';
 import { useToast } from '@/context/ToastContext';
+import { useRecurring } from '@/context/RecurringContext';
 
 interface TransactionFormProps {
   type: TransactionType;
@@ -121,6 +122,7 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
   const { addTransaction, addInstallmentTransaction } = useTransactions();
   const { userCards } = useCards();
   const { showToast } = useToast();
+  const { addRecurring } = useRecurring();
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState(''); // Valor à vista
   const [categoryId, setCategoryId] = useState('');
@@ -131,6 +133,8 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
   const [isInstallment, setIsInstallment] = useState(false);
   const [installmentTotal, setInstallmentTotal] = useState('2');
   const [installmentAmount, setInstallmentAmount] = useState(''); // Valor de cada parcela
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringDay, setRecurringDay] = useState('1');
 
   // Encontrar o cartão selecionado (apenas cartões cadastrados)
   const selectedUserCard = useMemo(() => {
@@ -230,7 +234,23 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
     };
 
     try {
-      if (isInstallment && type === 'expense' && isCreditCardSelected) {
+      if (isRecurring) {
+        // Adiciona como recorrente
+        await addRecurring({
+          type,
+          description,
+          amount: parseFloat(amount),
+          categoryId,
+          person,
+          cardId: finalCardId,
+          dayOfMonth: parseInt(recurringDay),
+          isActive: true,
+        });
+        showToast(
+          type === 'expense' ? 'Gasto fixo adicionado!' : 'Ganho fixo adicionado!',
+          'success'
+        );
+      } else if (isInstallment && type === 'expense' && isCreditCardSelected) {
         // Passa as datas calculadas para a função de parcelas
         await addInstallmentTransaction(
           transactionData,
@@ -569,15 +589,64 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
             </div>
           )}
 
+          {/* Opção de Recorrente */}
+          <div className="space-y-3 p-4 bg-purple-50 rounded-xl border border-purple-200">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isRecurring}
+                onChange={e => {
+                  setIsRecurring(e.target.checked);
+                  if (e.target.checked) {
+                    setIsInstallment(false); // Desabilita parcelamento se for recorrente
+                  }
+                }}
+                className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-700">
+                  Fixo mensal (recorrente)
+                </span>
+                <p className="text-xs text-gray-500">
+                  Será contabilizado automaticamente todo mês
+                </p>
+              </div>
+            </label>
+
+            {isRecurring && (
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Dia do mês
+                </label>
+                <input
+                  type="number"
+                  value={recurringDay}
+                  onChange={e => setRecurringDay(e.target.value)}
+                  min="1"
+                  max="31"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Ex: dia 10 para conta de luz, dia 5 para aluguel
+                </p>
+              </div>
+            )}
+          </div>
+
           <button
             type="submit"
             className={`w-full py-4 rounded-xl font-semibold text-white transition-colors ${
-              type === 'expense'
-                ? 'bg-red-500 hover:bg-red-600'
-                : 'bg-green-600 hover:bg-green-700'
+              isRecurring
+                ? 'bg-purple-600 hover:bg-purple-700'
+                : type === 'expense'
+                  ? 'bg-red-500 hover:bg-red-600'
+                  : 'bg-green-600 hover:bg-green-700'
             }`}
           >
-            {type === 'expense' ? 'Adicionar Gasto' : 'Adicionar Ganho'}
+            {isRecurring
+              ? (type === 'expense' ? 'Adicionar Gasto Fixo' : 'Adicionar Ganho Fixo')
+              : (type === 'expense' ? 'Adicionar Gasto' : 'Adicionar Ganho')
+            }
           </button>
         </form>
       </div>

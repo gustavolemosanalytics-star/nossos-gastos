@@ -4,10 +4,12 @@ import { useState, useMemo } from 'react';
 import { useTransactions } from '@/context/TransactionContext';
 import { useCards } from '@/context/CardContext';
 import { useSalaries } from '@/context/SalaryContext';
-import { expenseCategories, incomeCategories, persons } from '@/data/categories';
+import { useRecurring } from '@/context/RecurringContext';
+import { useToast } from '@/context/ToastContext';
+import { expenseCategories, incomeCategories, defaultCategories, persons } from '@/data/categories';
 import { MonthSelector } from '@/components/MonthSelector';
 import { getCurrentMonth } from '@/utils/formatters';
-import type { Transaction, TransactionType, PersonType } from '@/types';
+import type { Transaction, TransactionType, PersonType, RecurringTransaction } from '@/types';
 
 // Gerar array de meses (atual + próximos 11)
 function getNextMonths(count: number): string[] {
@@ -24,12 +26,16 @@ export default function Gerenciar() {
   const { transactions, updateTransaction, deleteTransaction, deleteInstallmentGroup } = useTransactions();
   const { userCards } = useCards();
   const { salaries } = useSalaries();
+  const { recurringTransactions, updateRecurring, deleteRecurring } = useRecurring();
+  const { showToast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingRecurringId, setEditingRecurringId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | TransactionType>('all');
+  const [filterType, setFilterType] = useState<'all' | TransactionType | 'recurring'>('all');
   const [filterCard, setFilterCard] = useState<string>('all'); // 'all', 'none', ou cardId
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmDeleteRecurring, setConfirmDeleteRecurring] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'spreadsheet'>('list');
 
   // Estado para modo planilha - valores editáveis por mês
@@ -146,7 +152,29 @@ export default function Gerenciar() {
     type: 'expense',
   });
 
+  // Form state para edição de recorrentes
+  const [editRecurringForm, setEditRecurringForm] = useState<{
+    description: string;
+    amount: string;
+    dayOfMonth: string;
+    categoryId: string;
+    person: PersonType;
+    cardId: string;
+    type: TransactionType;
+    isActive: boolean;
+  }>({
+    description: '',
+    amount: '',
+    dayOfMonth: '1',
+    categoryId: '',
+    person: 'nos',
+    cardId: '',
+    type: 'expense',
+    isActive: true,
+  });
+
   const filteredTransactions = useMemo(() => {
+    if (filterType === 'recurring') return [];
     return transactions
       .filter(t => t.date.startsWith(currentMonth))
       .filter(t => filterType === 'all' || t.type === filterType)
@@ -161,6 +189,17 @@ export default function Gerenciar() {
       )
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, currentMonth, filterType, filterCard, searchTerm, userCards]);
+
+  // Filtrar recorrentes
+  const filteredRecurring = useMemo(() => {
+    if (filterType !== 'all' && filterType !== 'recurring') return [];
+    return recurringTransactions
+      .filter(r =>
+        searchTerm === '' ||
+        r.description.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => a.dayOfMonth - b.dayOfMonth);
+  }, [recurringTransactions, filterType, searchTerm]);
 
   const allCategories = [...expenseCategories, ...incomeCategories];
 
@@ -235,6 +274,75 @@ export default function Gerenciar() {
       await deleteTransaction(t.id);
     }
     setConfirmDelete(null);
+  };
+
+  // Funções para recorrentes
+  const startEditingRecurring = (r: RecurringTransaction) => {
+    setEditingRecurringId(r.id);
+    setEditRecurringForm({
+      description: r.description,
+      amount: r.amount.toString(),
+      dayOfMonth: r.dayOfMonth.toString(),
+      categoryId: r.categoryId,
+      person: r.person,
+      cardId: r.cardId || '',
+      type: r.type,
+      isActive: r.isActive,
+    });
+  };
+
+  const cancelEditingRecurring = () => {
+    setEditingRecurringId(null);
+    setEditRecurringForm({
+      description: '',
+      amount: '',
+      dayOfMonth: '1',
+      categoryId: '',
+      person: 'nos',
+      cardId: '',
+      type: 'expense',
+      isActive: true,
+    });
+  };
+
+  const saveEditingRecurring = async () => {
+    if (!editingRecurringId) return;
+
+    try {
+      await updateRecurring(editingRecurringId, {
+        description: editRecurringForm.description,
+        amount: parseFloat(editRecurringForm.amount),
+        dayOfMonth: parseInt(editRecurringForm.dayOfMonth),
+        categoryId: editRecurringForm.categoryId,
+        person: editRecurringForm.person,
+        cardId: editRecurringForm.cardId || undefined,
+        type: editRecurringForm.type,
+        isActive: editRecurringForm.isActive,
+      });
+      showToast('Recorrente atualizado!', 'success');
+      cancelEditingRecurring();
+    } catch {
+      showToast('Erro ao atualizar', 'error');
+    }
+  };
+
+  const handleDeleteRecurring = async (id: string) => {
+    try {
+      await deleteRecurring(id);
+      showToast('Recorrente excluído!', 'success');
+      setConfirmDeleteRecurring(null);
+    } catch {
+      showToast('Erro ao excluir', 'error');
+    }
+  };
+
+  const toggleRecurringActive = async (r: RecurringTransaction) => {
+    try {
+      await updateRecurring(r.id, { isActive: !r.isActive });
+      showToast(r.isActive ? 'Desativado' : 'Ativado', 'info');
+    } catch {
+      showToast('Erro ao atualizar', 'error');
+    }
   };
 
   // Totais do mês (modo lista)
@@ -354,13 +462,14 @@ export default function Gerenciar() {
                 { value: 'all', label: 'Todos' },
                 { value: 'expense', label: 'Gastos' },
                 { value: 'income', label: 'Ganhos' },
+                { value: 'recurring', label: 'Fixos', color: 'purple' },
               ].map(option => (
                 <button
                   key={option.value}
                   onClick={() => setFilterType(option.value as typeof filterType)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                     filterType === option.value
-                      ? 'bg-green-600 text-white'
+                      ? option.value === 'recurring' ? 'bg-purple-600 text-white' : 'bg-green-600 text-white'
                       : 'bg-gray-100 text-gray-600'
                   }`}
                 >
@@ -368,7 +477,7 @@ export default function Gerenciar() {
                 </button>
               ))}
               <span className="ml-auto text-xs text-gray-500 self-center">
-                {filteredTransactions.length} registros
+                {filterType === 'recurring' ? filteredRecurring.length : filteredTransactions.length} registros
               </span>
             </div>
 
@@ -416,14 +525,239 @@ export default function Gerenciar() {
             )}
           </div>
 
+          {/* Seção de Recorrentes (quando filtro é 'all' ou 'recurring') */}
+          {(filterType === 'all' || filterType === 'recurring') && filteredRecurring.length > 0 && (
+            <div className="p-4 space-y-2">
+              <h3 className="text-sm font-semibold text-purple-700 flex items-center gap-2 mb-3">
+                <span className="text-lg">🔄</span> Gastos/Ganhos Fixos
+              </h3>
+              {filteredRecurring.map(r => {
+                const category = defaultCategories.find(c => c.id === r.categoryId);
+                const person = getPersonById(r.person);
+                const card = getCardById(r.cardId || '');
+                const isEditing = editingRecurringId === r.id;
+                const isDeleting = confirmDeleteRecurring === r.id;
+
+                return (
+                  <div
+                    key={r.id}
+                    className={`bg-white rounded-xl border ${
+                      isEditing ? 'border-purple-500 ring-2 ring-purple-200' : 'border-purple-100'
+                    } ${!r.isActive ? 'opacity-50' : ''} overflow-hidden`}
+                  >
+                    {isEditing ? (
+                      <div className="p-4 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-gray-500">Descrição</label>
+                            <input
+                              type="text"
+                              value={editRecurringForm.description}
+                              onChange={e => setEditRecurringForm({ ...editRecurringForm, description: e.target.value })}
+                              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500">Valor (R$)</label>
+                            <input
+                              type="number"
+                              value={editRecurringForm.amount}
+                              onChange={e => setEditRecurringForm({ ...editRecurringForm, amount: e.target.value })}
+                              step="0.01"
+                              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-gray-500">Dia do mês</label>
+                            <input
+                              type="number"
+                              value={editRecurringForm.dayOfMonth}
+                              onChange={e => setEditRecurringForm({ ...editRecurringForm, dayOfMonth: e.target.value })}
+                              min="1"
+                              max="31"
+                              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500">Tipo</label>
+                            <select
+                              value={editRecurringForm.type}
+                              onChange={e => setEditRecurringForm({ ...editRecurringForm, type: e.target.value as TransactionType })}
+                              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                            >
+                              <option value="expense">Gasto</option>
+                              <option value="income">Ganho</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-gray-500">Categoria</label>
+                            <select
+                              value={editRecurringForm.categoryId}
+                              onChange={e => setEditRecurringForm({ ...editRecurringForm, categoryId: e.target.value })}
+                              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                            >
+                              {(editRecurringForm.type === 'expense' ? expenseCategories : incomeCategories).map(c => (
+                                <option key={c.id} value={c.id}>
+                                  {c.icon} {c.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500">Pessoa</label>
+                            <select
+                              value={editRecurringForm.person}
+                              onChange={e => setEditRecurringForm({ ...editRecurringForm, person: e.target.value as PersonType })}
+                              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                            >
+                              {persons.map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.icon} {p.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editRecurringForm.isActive}
+                            onChange={e => setEditRecurringForm({ ...editRecurringForm, isActive: e.target.checked })}
+                            className="w-4 h-4 rounded border-gray-300 text-purple-600"
+                          />
+                          <span className="text-sm text-gray-700">Ativo</span>
+                        </label>
+
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            onClick={saveEditingRecurring}
+                            className="flex-1 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium"
+                          >
+                            Salvar
+                          </button>
+                          <button
+                            onClick={cancelEditingRecurring}
+                            className="flex-1 py-2 rounded-lg bg-gray-200 text-gray-700 text-sm font-medium"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3">
+                        <div className="flex items-start gap-3">
+                          <div
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
+                            style={{ backgroundColor: category?.color + '20' }}
+                          >
+                            {category?.icon || '📦'}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-900 truncate">
+                                {r.description}
+                              </p>
+                              <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">
+                                FIXO
+                              </span>
+                              {!r.isActive && (
+                                <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
+                                  Inativo
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                              <span>Dia {r.dayOfMonth}</span>
+                              <span>•</span>
+                              <span>{person?.icon} {person?.name}</span>
+                              {card && (
+                                <>
+                                  <span>•</span>
+                                  <span style={{ color: card.color }}>{card.name}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <p
+                            className={`font-semibold whitespace-nowrap ${
+                              r.type === 'expense' ? 'text-red-600' : 'text-green-600'
+                            }`}
+                          >
+                            {r.type === 'expense' ? '-' : '+'}{formatCurrency(r.amount)}
+                          </p>
+                        </div>
+
+                        {isDeleting ? (
+                          <div className="mt-3 pt-3 border-t border-gray-100">
+                            <p className="text-sm text-gray-600 mb-2">Excluir este fixo?</p>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleDeleteRecurring(r.id)}
+                                className="flex-1 py-2 rounded-lg bg-red-600 text-white text-sm font-medium"
+                              >
+                                Excluir
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteRecurring(null)}
+                                className="flex-1 py-2 rounded-lg bg-gray-200 text-gray-700 text-sm font-medium"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-3 pt-3 border-t border-gray-100 flex gap-2">
+                            <button
+                              onClick={() => toggleRecurringActive(r)}
+                              className={`flex-1 py-2 rounded-lg text-sm font-medium ${
+                                r.isActive
+                                  ? 'bg-gray-100 text-gray-600'
+                                  : 'bg-green-100 text-green-600'
+                              }`}
+                            >
+                              {r.isActive ? 'Desativar' : 'Ativar'}
+                            </button>
+                            <button
+                              onClick={() => startEditingRecurring(r)}
+                              className="flex-1 py-2 rounded-lg bg-purple-100 text-purple-700 text-sm font-medium hover:bg-purple-200"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteRecurring(r.id)}
+                              className="flex-1 py-2 rounded-lg bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100"
+                            >
+                              Excluir
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Lista de transações */}
+          {filterType !== 'recurring' && (
           <div className="p-4 space-y-2">
-            {filteredTransactions.length === 0 ? (
+            {filteredTransactions.length === 0 && (filterType !== 'all' || filteredRecurring.length === 0) ? (
               <div className="text-center py-12 text-gray-500">
                 <span className="text-4xl mb-2 block">📋</span>
                 <p>Nenhuma transação encontrada</p>
               </div>
-            ) : (
+            ) : filteredTransactions.length === 0 ? null : (
               filteredTransactions.map(t => {
                 const category = getCategoryById(t.categoryId);
                 const person = getPersonById(t.person);
@@ -641,6 +975,7 @@ export default function Gerenciar() {
               })
             )}
           </div>
+          )}
         </>
       ) : (
         /* Modo Planilha */
