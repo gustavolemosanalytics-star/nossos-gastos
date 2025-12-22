@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from 'react';
 import { useTransactions } from '@/context/TransactionContext';
-import { useSalaries } from '@/context/SalaryContext';
 import { useRecurring } from '@/context/RecurringContext';
 import { useToast } from '@/context/ToastContext';
 import { SummaryCard } from '@/components/SummaryCard';
@@ -18,7 +17,6 @@ import type { Transaction, TransactionType } from '@/types';
 
 export default function Dashboard() {
   const { transactions, loading, deleteTransaction, deleteInstallmentGroup, updateTransaction } = useTransactions();
-  const { salaries, getTotalSalaryForMonth } = useSalaries();
   const { recurringTransactions, getTotalRecurringExpensesForMonth, getTotalRecurringIncomeForMonth } = useRecurring();
   const { showToast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
@@ -33,13 +31,7 @@ export default function Dashboard() {
     [transactions, currentMonth, nextMonth]
   );
 
-  // Total de salários esperados para o mês
-  const expectedSalary = useMemo(
-    () => getTotalSalaryForMonth(currentMonth),
-    [getTotalSalaryForMonth, currentMonth]
-  );
-
-  // Totais recorrentes
+  // Totais recorrentes (inclui salários como ganhos fixos)
   const recurringExpenses = useMemo(
     () => getTotalRecurringExpensesForMonth(currentMonth),
     [getTotalRecurringExpensesForMonth, currentMonth]
@@ -50,10 +42,10 @@ export default function Dashboard() {
     [getTotalRecurringIncomeForMonth, currentMonth]
   );
 
-  // Saldo projetado (considerando salários + ganhos + recorrentes - gastos - gastos recorrentes)
+  // Saldo projetado (ganhos fixos + ganhos lançados - gastos fixos - gastos lançados)
   const projectedBalance = useMemo(() => {
-    return expectedSalary + summary.totalIncome + recurringIncome - summary.totalExpenses - recurringExpenses;
-  }, [expectedSalary, summary.totalIncome, recurringIncome, summary.totalExpenses, recurringExpenses]);
+    return summary.totalIncome + recurringIncome - summary.totalExpenses - recurringExpenses;
+  }, [summary.totalIncome, recurringIncome, summary.totalExpenses, recurringExpenses]);
 
   // Transações recentes (mantém ordem de lançamento do banco)
   const recentTransactions = useMemo(() => {
@@ -77,13 +69,7 @@ export default function Dashboard() {
     [monthTransactions]
   );
 
-  // Salários ativos
-  const activeSalaries = useMemo(() =>
-    salaries.filter(s => s.isActive),
-    [salaries]
-  );
-
-  // Recorrentes ativos
+  // Recorrentes ativos (inclui salários como ganhos fixos)
   const activeRecurringIncome = useMemo(() =>
     recurringTransactions.filter(r => r.isActive && r.type === 'income'),
     [recurringTransactions]
@@ -123,7 +109,6 @@ export default function Dashboard() {
           totalIncome={summary.totalIncome}
           totalExpenses={summary.totalExpenses}
           balance={summary.balance}
-          expectedSalary={expectedSalary}
           projectedBalance={projectedBalance}
           recurringExpenses={recurringExpenses}
           recurringIncome={recurringIncome}
@@ -214,28 +199,7 @@ export default function Dashboard() {
             <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-8">
               {showDetails === 'income' ? (
                 <>
-                  {/* Salários */}
-                  {activeSalaries.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                        Salários
-                      </h3>
-                      <div className="space-y-2">
-                        {activeSalaries.map(s => (
-                          <div key={s.id} className="bg-blue-50 p-3 rounded-xl flex justify-between items-center">
-                            <div>
-                              <p className="font-medium text-gray-900">{s.person === 'amanda' ? 'Amanda' : s.person === 'gustavo' ? 'Gustavo' : 'Nós'}</p>
-                              <p className="text-xs text-gray-500">Dia {s.dueDay}</p>
-                            </div>
-                            <p className="font-semibold text-blue-600">{formatCurrency(s.amount)}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Ganhos Fixos */}
+                  {/* Ganhos Fixos (inclui salários) */}
                   {activeRecurringIncome.length > 0 && (
                     <div>
                       <h3 className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
@@ -286,7 +250,7 @@ export default function Dashboard() {
                     </div>
                   )}
 
-                  {activeSalaries.length === 0 && activeRecurringIncome.length === 0 && incomeTransactions.length === 0 && (
+                  {activeRecurringIncome.length === 0 && incomeTransactions.length === 0 && (
                     <div className="text-center py-8 text-gray-500">
                       <span className="text-4xl mb-2 block">💰</span>
                       <p>Nenhum ganho este mês</p>

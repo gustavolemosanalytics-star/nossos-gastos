@@ -3,19 +3,19 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useCards } from '@/context/CardContext';
-import { useSalaries } from '@/context/SalaryContext';
+import { useRecurring } from '@/context/RecurringContext';
 
 const defaultColors = ['#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#06b6d4', '#ef4444', '#fbbf24'];
 
 export default function Cartoes() {
   const { userCards, addCard, updateCard, deleteCard } = useCards();
-  const { salaries } = useSalaries();
+  const { recurringTransactions } = useRecurring();
   const [showNewForm, setShowNewForm] = useState(false);
   const [editingCard, setEditingCard] = useState<string | null>(null);
 
-  const totalSalary = salaries
-    .filter(s => s.isActive)
-    .reduce((sum, s) => sum + s.amount, 0);
+  // Ganhos fixos ativos (inclui salários)
+  const activeRecurringIncome = recurringTransactions.filter(r => r.isActive && r.type === 'income');
+  const totalRecurringIncome = activeRecurringIncome.reduce((sum, r) => sum + r.amount, 0);
 
   const formatCurrency = (value: number) =>
     value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -132,19 +132,19 @@ export default function Cartoes() {
       </div>
 
       <div className="p-4">
-        {/* Link para Salários */}
+        {/* Link para Ganhos Fixos */}
         <Link
-          href="/salarios"
-          className="flex items-center justify-between p-4 bg-blue-50 rounded-xl border border-blue-200 mb-4"
+          href="/gerenciar"
+          className="flex items-center justify-between p-4 bg-purple-50 rounded-xl border border-purple-200 mb-4"
         >
           <div className="flex items-center gap-3">
             <span className="text-2xl">💰</span>
             <div>
-              <p className="font-semibold text-gray-900">Salários</p>
+              <p className="font-semibold text-gray-900">Ganhos Fixos</p>
               <p className="text-sm text-gray-500">
-                {salaries.length === 0
+                {activeRecurringIncome.length === 0
                   ? 'Nenhum cadastrado'
-                  : `${salaries.filter(s => s.isActive).length} ativo(s) • ${formatCurrency(totalSalary)}/mês`}
+                  : `${activeRecurringIncome.length} ativo(s) • ${formatCurrency(totalRecurringIncome)}/mês`}
               </p>
             </div>
           </div>

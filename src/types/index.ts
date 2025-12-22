@@ -63,15 +63,6 @@ export interface Investment {
   transactions: InvestmentTransaction[];
 }
 
-export interface Salary {
-  id: string;
-  person: 'amanda' | 'gustavo';
-  description: string;
-  amount: number;
-  dueDay: number; // Dia limite para receber
-  isActive: boolean;
-}
-
 export interface RecurringTransaction {
   id: string;
   type: TransactionType;

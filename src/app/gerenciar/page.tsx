@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react';
 import { useTransactions } from '@/context/TransactionContext';
 import { useCards } from '@/context/CardContext';
-import { useSalaries } from '@/context/SalaryContext';
 import { useRecurring } from '@/context/RecurringContext';
 import { useToast } from '@/context/ToastContext';
 import { expenseCategories, incomeCategories, defaultCategories, persons } from '@/data/categories';
@@ -25,8 +24,7 @@ function getNextMonths(count: number): string[] {
 export default function Gerenciar() {
   const { transactions, updateTransaction, deleteTransaction, deleteInstallmentGroup } = useTransactions();
   const { userCards } = useCards();
-  const { salaries } = useSalaries();
-  const { recurringTransactions, updateRecurring, deleteRecurring } = useRecurring();
+  const { recurringTransactions, updateRecurring, deleteRecurring, getTotalRecurringIncomeForMonth } = useRecurring();
   const { showToast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(getCurrentMonth());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -92,7 +90,7 @@ export default function Gerenciar() {
   const spreadsheetTotals = useMemo(() => {
     const totals: {
       [month: string]: {
-        totalSalary: number;
+        totalRecurringIncome: number;
         totalCards: number;
         otherExpenses: number;
         extraIncome: number;
@@ -102,12 +100,11 @@ export default function Gerenciar() {
       };
     } = {};
 
-    const totalSalary = salaries
-      .filter(s => s.isActive)
-      .reduce((sum, s) => sum + s.amount, 0);
-
     spreadsheetMonths.forEach(month => {
       const monthData = spreadsheetData[month] || { cards: {}, otherExpenses: '', extraIncome: '' };
+
+      // Usar ganhos recorrentes (inclui salários) do contexto
+      const totalRecurringIncome = getTotalRecurringIncomeForMonth(month);
 
       const totalCards = Object.values(monthData.cards)
         .reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
@@ -115,12 +112,12 @@ export default function Gerenciar() {
       const otherExp = parseFloat(monthData.otherExpenses) || 0;
       const extraInc = parseFloat(monthData.extraIncome) || 0;
 
-      const totalIncome = totalSalary + extraInc;
+      const totalIncome = totalRecurringIncome + extraInc;
       const totalExpenses = totalCards + otherExp;
       const balance = totalIncome - totalExpenses;
 
       totals[month] = {
-        totalSalary,
+        totalRecurringIncome,
         totalCards,
         otherExpenses: otherExp,
         extraIncome: extraInc,
@@ -131,7 +128,7 @@ export default function Gerenciar() {
     });
 
     return totals;
-  }, [spreadsheetData, spreadsheetMonths, salaries]);
+  }, [spreadsheetData, spreadsheetMonths, getTotalRecurringIncomeForMonth]);
 
   // Form state para edição
   const [editForm, setEditForm] = useState<{
@@ -1064,7 +1061,7 @@ export default function Gerenciar() {
           <div className="p-4">
             <p className="text-sm text-gray-600 mb-4">
               Preencha os valores de cada mês para calcular quanto vai sobrar.
-              Os salários cadastrados ({formatCurrency(salaries.filter(s => s.isActive).reduce((sum, s) => sum + s.amount, 0))}/mês) são incluídos automaticamente.
+              Os ganhos fixos cadastrados são incluídos automaticamente.
             </p>
           </div>
 
@@ -1079,14 +1076,14 @@ export default function Gerenciar() {
               ))}
             </div>
 
-            {/* Linha de Salários (fixo) */}
+            {/* Linha de Ganhos Fixos (inclui salários) */}
             <div className="grid grid-cols-[140px_repeat(12,minmax(90px,1fr))] bg-green-50 border-b">
               <div className="p-2 text-xs font-medium text-green-700 border-r flex items-center gap-1">
-                💰 Salários
+                💰 Ganhos Fixos
               </div>
               {spreadsheetMonths.map(month => (
                 <div key={month} className="p-2 text-xs text-green-700 text-right border-r font-medium">
-                  {formatCurrency(spreadsheetTotals[month]?.totalSalary || 0)}
+                  {formatCurrency(spreadsheetTotals[month]?.totalRecurringIncome || 0)}
                 </div>
               ))}
             </div>

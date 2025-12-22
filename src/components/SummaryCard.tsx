@@ -4,7 +4,6 @@ interface SummaryCardProps {
   totalIncome: number;
   totalExpenses: number;
   balance: number;
-  expectedSalary?: number;
   projectedBalance?: number;
   recurringExpenses?: number;
   recurringIncome?: number;
@@ -16,15 +15,14 @@ export function SummaryCard({
   totalIncome,
   totalExpenses,
   balance,
-  expectedSalary = 0,
   projectedBalance,
   recurringExpenses = 0,
   recurringIncome = 0,
   onClickIncome,
   onClickExpense,
 }: SummaryCardProps) {
-  // Junta salário + ganhos + ganhos recorrentes
-  const totalGanhos = expectedSalary + totalIncome + recurringIncome;
+  // Junta ganhos lançados + ganhos recorrentes (inclui salários)
+  const totalGanhos = totalIncome + recurringIncome;
   const totalGastos = totalExpenses + recurringExpenses;
   const saldoFinal = projectedBalance ?? balance;
 

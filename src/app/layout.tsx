@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import { TransactionProvider } from '@/context/TransactionContext';
 import { InvestmentProvider } from '@/context/InvestmentContext';
 import { CardProvider } from '@/context/CardContext';
-import { SalaryProvider } from '@/context/SalaryContext';
 import { RecurringProvider } from '@/context/RecurringContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { BottomNav } from '@/components/BottomNav';
@@ -38,14 +37,12 @@ export default function RootLayout({
           <TransactionProvider>
             <InvestmentProvider>
               <CardProvider>
-                <SalaryProvider>
-                  <RecurringProvider>
-                    <main className="pb-20">
-                      {children}
-                    </main>
-                    <BottomNav />
-                  </RecurringProvider>
-                </SalaryProvider>
+                <RecurringProvider>
+                  <main className="pb-20">
+                    {children}
+                  </main>
+                  <BottomNav />
+                </RecurringProvider>
               </CardProvider>
             </InvestmentProvider>
           </TransactionProvider>
