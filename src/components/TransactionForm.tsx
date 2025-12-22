@@ -135,6 +135,8 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
   const [installmentAmount, setInstallmentAmount] = useState(''); // Valor de cada parcela
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringDay, setRecurringDay] = useState('1');
+  const [addedCount, setAddedCount] = useState(0); // Contador de itens adicionados
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Encontrar o cartão selecionado (apenas cartões cadastrados)
   const selectedUserCard = useMemo(() => {
@@ -195,15 +197,27 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
     return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  // Limpa campos para adicionar outro item (mantém data, pessoa e forma de pagamento)
+  const resetForAnotherItem = () => {
+    setDescription('');
+    setAmount('');
+    setCategoryId('');
+    setIsInstallment(false);
+    setInstallmentTotal('2');
+    setInstallmentAmount('');
+    setIsRecurring(false);
+    setRecurringDay('1');
+  };
+
   const formatMonth = (dateStr: string) => {
     const d = new Date(dateStr + 'T12:00:00');
     return new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit' }).format(d);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const saveTransaction = async (closeAfter: boolean) => {
+    if (!description || !amount || !categoryId || !person) return false;
 
-    if (!description || !amount || !categoryId || !person) return;
+    setIsSubmitting(true);
 
     // Valor da parcela a ser lançado (usa valor informado ou calcula)
     const finalInstallmentAmount = installmentAmount && parseFloat(installmentAmount) > 0
@@ -246,10 +260,6 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
           dayOfMonth: parseInt(recurringDay),
           isActive: true,
         });
-        showToast(
-          type === 'expense' ? 'Gasto fixo adicionado!' : 'Ganho fixo adicionado!',
-          'success'
-        );
       } else if (isInstallment && type === 'expense' && isCreditCardSelected) {
         // Passa as datas calculadas para a função de parcelas
         await addInstallmentTransaction(
@@ -257,19 +267,46 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
           parseInt(installmentTotal),
           installmentDates
         );
-        showToast(`Parcelamento de ${parseInt(installmentTotal)}x adicionado com sucesso!`, 'success');
       } else {
         await addTransaction(transactionData);
-        showToast(
-          type === 'expense' ? 'Gasto adicionado com sucesso!' : 'Ganho adicionado com sucesso!',
-          'success'
-        );
       }
-      onClose();
+
+      setAddedCount(prev => prev + 1);
+      setIsSubmitting(false);
+
+      if (closeAfter) {
+        const total = addedCount + 1;
+        if (total === 1) {
+          showToast(
+            isRecurring
+              ? (type === 'expense' ? 'Gasto fixo adicionado!' : 'Ganho fixo adicionado!')
+              : (type === 'expense' ? 'Gasto adicionado!' : 'Ganho adicionado!'),
+            'success'
+          );
+        } else {
+          showToast(`${total} ${type === 'expense' ? 'gastos adicionados' : 'ganhos adicionados'}!`, 'success');
+        }
+        onClose();
+      } else {
+        showToast('Adicionado! Continue lançando...', 'success');
+        resetForAnotherItem();
+      }
+      return true;
     } catch (error) {
       console.error('Erro ao salvar:', error);
       showToast('Erro ao salvar. Tente novamente.', 'error');
+      setIsSubmitting(false);
+      return false;
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await saveTransaction(true);
+  };
+
+  const handleAddAnother = async () => {
+    await saveTransaction(false);
   };
 
   return (
@@ -277,9 +314,16 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
       <div className="bg-white w-full rounded-t-3xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white px-4 py-4 border-b border-gray-100 z-10">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-900">
-              {type === 'expense' ? 'Novo Gasto' : 'Novo Ganho'}
-            </h2>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">
+                {type === 'expense' ? 'Novo Gasto' : 'Novo Ganho'}
+              </h2>
+              {addedCount > 0 && (
+                <p className="text-xs text-green-600">
+                  {addedCount} {addedCount === 1 ? 'item adicionado' : 'itens adicionados'}
+                </p>
+              )}
+            </div>
             <button
               onClick={onClose}
               className="p-2 text-gray-500 hover:text-gray-700"
@@ -633,21 +677,46 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
             )}
           </div>
 
-          <button
-            type="submit"
-            className={`w-full py-4 rounded-xl font-semibold text-white transition-colors ${
-              isRecurring
-                ? 'bg-purple-600 hover:bg-purple-700'
-                : type === 'expense'
-                  ? 'bg-red-500 hover:bg-red-600'
-                  : 'bg-green-600 hover:bg-green-700'
-            }`}
-          >
-            {isRecurring
-              ? (type === 'expense' ? 'Adicionar Gasto Fixo' : 'Adicionar Ganho Fixo')
-              : (type === 'expense' ? 'Adicionar Gasto' : 'Adicionar Ganho')
-            }
-          </button>
+          {/* Botões de ação */}
+          <div className="space-y-2">
+            {/* Botão Adicionar Outro */}
+            <button
+              type="button"
+              onClick={handleAddAnother}
+              disabled={isSubmitting || !description || !amount || !categoryId}
+              className={`w-full py-3 rounded-xl font-semibold transition-colors border-2 ${
+                isSubmitting || !description || !amount || !categoryId
+                  ? 'border-gray-200 text-gray-400 bg-gray-50'
+                  : 'border-green-500 text-green-600 bg-green-50 hover:bg-green-100'
+              }`}
+            >
+              {isSubmitting ? 'Salvando...' : '+ Adicionar outro'}
+            </button>
+
+            {/* Botão Finalizar */}
+            <button
+              type="submit"
+              disabled={isSubmitting || !description || !amount || !categoryId}
+              className={`w-full py-4 rounded-xl font-semibold text-white transition-colors ${
+                isSubmitting || !description || !amount || !categoryId
+                  ? 'bg-gray-300'
+                  : isRecurring
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : type === 'expense'
+                      ? 'bg-red-500 hover:bg-red-600'
+                      : 'bg-green-600 hover:bg-green-700'
+              }`}
+            >
+              {isSubmitting
+                ? 'Salvando...'
+                : addedCount > 0
+                  ? `Finalizar (${addedCount + 1} itens)`
+                  : isRecurring
+                    ? (type === 'expense' ? 'Adicionar Gasto Fixo' : 'Adicionar Ganho Fixo')
+                    : (type === 'expense' ? 'Adicionar Gasto' : 'Adicionar Ganho')
+              }
+            </button>
+          </div>
         </form>
       </div>
     </div>
