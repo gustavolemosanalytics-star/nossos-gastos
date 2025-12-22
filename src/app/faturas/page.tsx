@@ -275,14 +275,9 @@ export default function Faturas() {
       fatura.total += t.amount;
     });
 
-    // Ordenar transações por data e converter para array
+    // Converter para array e ordenar cartões (mantém ordem de lançamento das transações)
     const resultado = Array.from(porMes.values());
     resultado.forEach(fatura => {
-      fatura.porCartao.forEach(cartao => {
-        cartao.transacoes.sort((a, b) => a.date.localeCompare(b.date));
-        cartao.parceladas.sort((a, b) => a.date.localeCompare(b.date));
-        cartao.aVista.sort((a, b) => a.date.localeCompare(b.date));
-      });
       // Ordenar cartões por total (maior primeiro)
       fatura.porCartao.sort((a, b) => b.total - a.total);
     });

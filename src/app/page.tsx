@@ -55,18 +55,16 @@ export default function Dashboard() {
     return expectedSalary + summary.totalIncome + recurringIncome - summary.totalExpenses - recurringExpenses;
   }, [expectedSalary, summary.totalIncome, recurringIncome, summary.totalExpenses, recurringExpenses]);
 
+  // Transações recentes (mantém ordem de lançamento do banco)
   const recentTransactions = useMemo(() => {
     return transactions
       .filter(t => t.date.startsWith(currentMonth))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5);
   }, [transactions, currentMonth]);
 
-  // Todas as transações do mês para o modal de detalhes
+  // Todas as transações do mês para o modal de detalhes (mantém ordem de lançamento)
   const monthTransactions = useMemo(() => {
-    return transactions
-      .filter(t => t.date.startsWith(currentMonth))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return transactions.filter(t => t.date.startsWith(currentMonth));
   }, [transactions, currentMonth]);
 
   const incomeTransactions = useMemo(() =>

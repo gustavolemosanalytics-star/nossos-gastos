@@ -173,6 +173,7 @@ export default function Gerenciar() {
     isActive: true,
   });
 
+  // Transações filtradas (mantém ordem de lançamento do banco)
   const filteredTransactions = useMemo(() => {
     if (filterType === 'recurring') return [];
     return transactions
@@ -186,8 +187,7 @@ export default function Gerenciar() {
       .filter(t =>
         searchTerm === '' ||
         t.description.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      );
   }, [transactions, currentMonth, filterType, filterCard, searchTerm, userCards]);
 
   // Separar transações em parceladas e à vista

@@ -60,13 +60,13 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Carregar transações do Supabase
+  // Carregar transações do Supabase (ordenadas por ordem de criação)
   const fetchTransactions = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('nossos-gastos-transactions')
         .select('*')
-        .order('date', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 

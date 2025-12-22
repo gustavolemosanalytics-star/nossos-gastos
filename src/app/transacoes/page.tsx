@@ -15,11 +15,11 @@ export default function Transacoes() {
   const [filter, setFilter] = useState<TransactionType | 'all'>('all');
   const [formType, setFormType] = useState<TransactionType | null>(null);
 
+  // Transações filtradas (mantém ordem de lançamento do banco)
   const filteredTransactions = useMemo(() => {
     return transactions
       .filter(t => t.date.startsWith(currentMonth))
-      .filter(t => filter === 'all' || t.type === filter)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      .filter(t => filter === 'all' || t.type === filter);
   }, [transactions, currentMonth, filter]);
 
   return (
