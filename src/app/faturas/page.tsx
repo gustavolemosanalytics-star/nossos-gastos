@@ -5,6 +5,17 @@ import { useTransactions } from '@/context/TransactionContext';
 import { useCards } from '@/context/CardContext';
 import { expenseCategories } from '@/data/categories';
 
+interface TransacaoFatura {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  categoryId?: string;
+  isInstallment: boolean;
+  installmentCurrent?: number;
+  installmentTotal?: number;
+}
+
 interface FaturaResumo {
   mes: string;
   mesLabel: string;
@@ -15,16 +26,11 @@ interface FaturaResumo {
     cardName: string;
     cardColor: string;
     total: number;
-    transacoes: {
-      id: string;
-      description: string;
-      amount: number;
-      date: string;
-      categoryId?: string;
-      isInstallment: boolean;
-      installmentCurrent?: number;
-      installmentTotal?: number;
-    }[];
+    totalParcelado: number;
+    totalAVista: number;
+    transacoes: TransacaoFatura[];
+    parceladas: TransacaoFatura[];
+    aVista: TransacaoFatura[];
   }[];
 }
 
@@ -235,13 +241,16 @@ export default function Faturas() {
           cardName: cartao.name,
           cardColor: cartao.color,
           total: 0,
+          totalParcelado: 0,
+          totalAVista: 0,
           transacoes: [],
+          parceladas: [],
+          aVista: [],
         };
         fatura.porCartao.push(cartaoEntry);
       }
 
-      cartaoEntry.total += t.amount;
-      cartaoEntry.transacoes.push({
+      const transacao: TransacaoFatura = {
         id: t.id,
         description: t.description,
         amount: t.amount,
@@ -250,7 +259,18 @@ export default function Faturas() {
         isInstallment: t.isInstallment,
         installmentCurrent: t.installmentCurrent,
         installmentTotal: t.installmentTotal,
-      });
+      };
+
+      cartaoEntry.total += t.amount;
+      cartaoEntry.transacoes.push(transacao);
+
+      if (t.isInstallment) {
+        cartaoEntry.totalParcelado += t.amount;
+        cartaoEntry.parceladas.push(transacao);
+      } else {
+        cartaoEntry.totalAVista += t.amount;
+        cartaoEntry.aVista.push(transacao);
+      }
 
       fatura.total += t.amount;
     });
@@ -260,6 +280,8 @@ export default function Faturas() {
     resultado.forEach(fatura => {
       fatura.porCartao.forEach(cartao => {
         cartao.transacoes.sort((a, b) => a.date.localeCompare(b.date));
+        cartao.parceladas.sort((a, b) => a.date.localeCompare(b.date));
+        cartao.aVista.sort((a, b) => a.date.localeCompare(b.date));
       });
       // Ordenar cartões por total (maior primeiro)
       fatura.porCartao.sort((a, b) => b.total - a.total);
@@ -408,7 +430,7 @@ export default function Faturas() {
                   <div className="p-4 space-y-4">
                     {fatura.porCartao.map(cartao => (
                       <div key={cartao.cardId}>
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <div
                               className="w-3 h-3 rounded-full"
@@ -423,29 +445,76 @@ export default function Faturas() {
                           </span>
                         </div>
 
-                        <div className="ml-5 space-y-1">
-                          {cartao.transacoes.slice(0, 5).map(t => (
-                            <div
-                              key={t.id}
-                              className="flex items-center justify-between text-xs text-gray-500"
-                            >
-                              <span className="truncate flex-1 mr-2">
-                                {t.description}
-                                {t.isInstallment && (
-                                  <span className="text-blue-500 ml-1">
-                                    ({t.installmentCurrent}/{t.installmentTotal})
-                                  </span>
+                        <div className="ml-5 space-y-3">
+                          {/* Compras Parceladas */}
+                          {cartao.parceladas.length > 0 && (
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                                  🔄 Parceladas
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {formatCurrency(cartao.totalParcelado)}
+                                </span>
+                              </div>
+                              <div className="space-y-1 pl-2 border-l-2 border-blue-200">
+                                {cartao.parceladas.slice(0, 5).map(t => (
+                                  <div
+                                    key={t.id}
+                                    className="flex items-center justify-between text-xs text-gray-500"
+                                  >
+                                    <span className="truncate flex-1 mr-2">
+                                      {t.description}
+                                      <span className="text-blue-500 ml-1">
+                                        ({t.installmentCurrent}/{t.installmentTotal})
+                                      </span>
+                                    </span>
+                                    <span className="text-gray-700 whitespace-nowrap">
+                                      {formatCurrency(t.amount)}
+                                    </span>
+                                  </div>
+                                ))}
+                                {cartao.parceladas.length > 5 && (
+                                  <p className="text-xs text-gray-400">
+                                    +{cartao.parceladas.length - 5} itens
+                                  </p>
                                 )}
-                              </span>
-                              <span className="text-gray-700 whitespace-nowrap">
-                                {formatCurrency(t.amount)}
-                              </span>
+                              </div>
                             </div>
-                          ))}
-                          {cartao.transacoes.length > 5 && (
-                            <p className="text-xs text-gray-400">
-                              +{cartao.transacoes.length - 5} itens
-                            </p>
+                          )}
+
+                          {/* Compras à Vista */}
+                          {cartao.aVista.length > 0 && (
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                                  💳 À vista
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {formatCurrency(cartao.totalAVista)}
+                                </span>
+                              </div>
+                              <div className="space-y-1 pl-2 border-l-2 border-green-200">
+                                {cartao.aVista.slice(0, 5).map(t => (
+                                  <div
+                                    key={t.id}
+                                    className="flex items-center justify-between text-xs text-gray-500"
+                                  >
+                                    <span className="truncate flex-1 mr-2">
+                                      {t.description}
+                                    </span>
+                                    <span className="text-gray-700 whitespace-nowrap">
+                                      {formatCurrency(t.amount)}
+                                    </span>
+                                  </div>
+                                ))}
+                                {cartao.aVista.length > 5 && (
+                                  <p className="text-xs text-gray-400">
+                                    +{cartao.aVista.length - 5} itens
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </div>
                       </div>
