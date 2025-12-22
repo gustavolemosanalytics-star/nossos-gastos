@@ -19,8 +19,9 @@ export function SummaryCard({
   recurringExpenses = 0,
   recurringIncome = 0,
 }: SummaryCardProps) {
-  const totalEntradas = expectedSalary + totalIncome + recurringIncome;
-  const totalSaidas = totalExpenses + recurringExpenses;
+  // Junta salário + ganhos + ganhos recorrentes
+  const totalGanhos = expectedSalary + totalIncome + recurringIncome;
+  const totalGastos = totalExpenses + recurringExpenses;
   const saldoFinal = projectedBalance ?? balance;
 
   const hasRecurring = recurringExpenses > 0 || recurringIncome > 0;
@@ -34,28 +35,15 @@ export function SummaryCard({
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 pt-4 border-t border-gray-100">
-        {/* Salários */}
-        {expectedSalary > 0 && (
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 mb-1">
-              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-              <span className="text-xs text-gray-500">Salários</span>
-            </div>
-            <p className="text-sm font-semibold text-blue-600">
-              {formatCurrency(expectedSalary)}
-            </p>
-          </div>
-        )}
-
-        {/* Ganhos */}
+      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+        {/* Ganhos (salário + ganhos + recorrentes) */}
         <div className="text-center">
           <div className="flex items-center justify-center gap-1 mb-1">
             <span className="w-2 h-2 rounded-full bg-green-500"></span>
             <span className="text-xs text-gray-500">Ganhos</span>
           </div>
-          <p className="text-sm font-semibold text-green-600">
-            {formatCurrency(totalIncome + recurringIncome)}
+          <p className="text-lg font-semibold text-green-600">
+            {formatCurrency(totalGanhos)}
           </p>
         </div>
 
@@ -65,13 +53,13 @@ export function SummaryCard({
             <span className="w-2 h-2 rounded-full bg-red-500"></span>
             <span className="text-xs text-gray-500">Gastos</span>
           </div>
-          <p className="text-sm font-semibold text-red-500">
-            {formatCurrency(totalSaidas)}
+          <p className="text-lg font-semibold text-red-500">
+            {formatCurrency(totalGastos)}
           </p>
         </div>
       </div>
 
-      {/* Detalhes dos recorrentes */}
+      {/* Detalhes dos fixos */}
       {hasRecurring && (
         <div className="mt-3 pt-3 border-t border-gray-100">
           <div className="flex justify-between text-xs text-gray-500">
@@ -82,13 +70,6 @@ export function SummaryCard({
               {recurringExpenses > 0 && <span className="text-red-500">-{formatCurrency(recurringExpenses)}</span>}
             </span>
           </div>
-        </div>
-      )}
-
-      {/* Resumo detalhado quando tem salário */}
-      {expectedSalary > 0 && (
-        <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500 text-center">
-          Total de entradas: {formatCurrency(totalEntradas)}
         </div>
       )}
     </div>
