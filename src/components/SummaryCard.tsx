@@ -8,6 +8,8 @@ interface SummaryCardProps {
   projectedBalance?: number;
   recurringExpenses?: number;
   recurringIncome?: number;
+  onClickIncome?: () => void;
+  onClickExpense?: () => void;
 }
 
 export function SummaryCard({
@@ -18,6 +20,8 @@ export function SummaryCard({
   projectedBalance,
   recurringExpenses = 0,
   recurringIncome = 0,
+  onClickIncome,
+  onClickExpense,
 }: SummaryCardProps) {
   // Junta salário + ganhos + ganhos recorrentes
   const totalGanhos = expectedSalary + totalIncome + recurringIncome;
@@ -37,26 +41,38 @@ export function SummaryCard({
 
       <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
         {/* Ganhos (salário + ganhos + recorrentes) */}
-        <div className="text-center">
+        <button
+          onClick={onClickIncome}
+          className="text-center p-2 rounded-xl hover:bg-green-50 active:bg-green-100 transition-colors cursor-pointer"
+        >
           <div className="flex items-center justify-center gap-1 mb-1">
             <span className="w-2 h-2 rounded-full bg-green-500"></span>
             <span className="text-xs text-gray-500">Ganhos</span>
+            <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </div>
           <p className="text-lg font-semibold text-green-600">
             {formatCurrency(totalGanhos)}
           </p>
-        </div>
+        </button>
 
         {/* Gastos */}
-        <div className="text-center">
+        <button
+          onClick={onClickExpense}
+          className="text-center p-2 rounded-xl hover:bg-red-50 active:bg-red-100 transition-colors cursor-pointer"
+        >
           <div className="flex items-center justify-center gap-1 mb-1">
             <span className="w-2 h-2 rounded-full bg-red-500"></span>
             <span className="text-xs text-gray-500">Gastos</span>
+            <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </div>
           <p className="text-lg font-semibold text-red-500">
             {formatCurrency(totalGastos)}
           </p>
-        </div>
+        </button>
       </div>
 
       {/* Detalhes dos fixos */}
