@@ -28,6 +28,8 @@ function toDbFormat(r: Omit<RecurringTransaction, 'id'>) {
     card_id: r.cardId || null,
     day_of_month: r.dayOfMonth,
     is_active: r.isActive,
+    duration_months: r.durationMonths || null,
+    start_month: r.startMonth || null,
   };
 }
 
@@ -43,6 +45,8 @@ function fromDbFormat(row: Record<string, unknown>): RecurringTransaction {
     cardId: row.card_id as string | undefined,
     dayOfMonth: row.day_of_month as number,
     isActive: row.is_active as boolean,
+    durationMonths: row.duration_months as number | undefined,
+    startMonth: row.start_month as string | undefined,
   };
 }
 
@@ -100,6 +104,8 @@ export function RecurringProvider({ children }: { children: ReactNode }) {
       if (data.cardId !== undefined) updateData.card_id = data.cardId || null;
       if (data.dayOfMonth !== undefined) updateData.day_of_month = data.dayOfMonth;
       if (data.isActive !== undefined) updateData.is_active = data.isActive;
+      if (data.durationMonths !== undefined) updateData.duration_months = data.durationMonths || null;
+      if (data.startMonth !== undefined) updateData.start_month = data.startMonth || null;
 
       const { error } = await supabase
         .from('nossos-gastos-recurring')

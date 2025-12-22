@@ -82,4 +82,6 @@ export interface RecurringTransaction {
   cardId?: string;
   dayOfMonth: number; // Dia do mês que se repete
   isActive: boolean;
+  durationMonths?: number; // Quantidade de meses (null = sem fim)
+  startMonth?: string; // Mês de início (YYYY-MM)
 }

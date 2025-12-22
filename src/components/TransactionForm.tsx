@@ -135,6 +135,7 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
   const [installmentAmount, setInstallmentAmount] = useState(''); // Valor de cada parcela
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringDay, setRecurringDay] = useState('1');
+  const [recurringDuration, setRecurringDuration] = useState(''); // Vazio = sem fim
   const [addedCount, setAddedCount] = useState(0); // Contador de itens adicionados
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -207,6 +208,7 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
     setInstallmentAmount('');
     setIsRecurring(false);
     setRecurringDay('1');
+    setRecurringDuration('');
   };
 
   const formatMonth = (dateStr: string) => {
@@ -250,6 +252,7 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
     try {
       if (isRecurring) {
         // Adiciona como recorrente
+        const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
         await addRecurring({
           type,
           description,
@@ -259,6 +262,8 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
           cardId: finalCardId,
           dayOfMonth: parseInt(recurringDay),
           isActive: true,
+          durationMonths: recurringDuration ? parseInt(recurringDuration) : undefined,
+          startMonth: currentMonth,
         });
       } else if (isInstallment && type === 'expense' && isCreditCardSelected) {
         // Passa as datas calculadas para a função de parcelas
@@ -658,20 +663,39 @@ export function TransactionForm({ type, onClose }: TransactionFormProps) {
             </label>
 
             {isRecurring && (
-              <div className="mt-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Dia do mês
-                </label>
-                <input
-                  type="number"
-                  value={recurringDay}
-                  onChange={e => setRecurringDay(e.target.value)}
-                  min="1"
-                  max="31"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Ex: dia 10 para conta de luz, dia 5 para aluguel
+              <div className="mt-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Dia do mês
+                    </label>
+                    <input
+                      type="number"
+                      value={recurringDay}
+                      onChange={e => setRecurringDay(e.target.value)}
+                      min="1"
+                      max="31"
+                      placeholder="1-31"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Duração (meses)
+                    </label>
+                    <input
+                      type="number"
+                      value={recurringDuration}
+                      onChange={e => setRecurringDuration(e.target.value)}
+                      min="1"
+                      max="120"
+                      placeholder="Sem fim"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Deixe duração em branco para repetir sem data de término
                 </p>
               </div>
             )}

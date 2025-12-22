@@ -165,6 +165,8 @@ CREATE TABLE "nossos-gastos-recurring" (
   card_id TEXT,
   day_of_month INTEGER NOT NULL CHECK (day_of_month >= 1 AND day_of_month <= 31),
   is_active BOOLEAN DEFAULT TRUE,
+  duration_months INTEGER, -- Quantidade de meses (NULL = sem fim)
+  start_month TEXT, -- Mês de início (YYYY-MM)
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -176,3 +178,7 @@ CREATE TRIGGER update_ng_recurring_updated_at
   BEFORE UPDATE ON "nossos-gastos-recurring"
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- Migração: Adicionar colunas duration_months e start_month se a tabela já existir
+-- ALTER TABLE "nossos-gastos-recurring" ADD COLUMN IF NOT EXISTS duration_months INTEGER;
+-- ALTER TABLE "nossos-gastos-recurring" ADD COLUMN IF NOT EXISTS start_month TEXT;
