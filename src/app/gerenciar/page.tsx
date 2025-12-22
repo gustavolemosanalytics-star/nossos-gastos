@@ -190,6 +190,33 @@ export default function Gerenciar() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, currentMonth, filterType, filterCard, searchTerm, userCards]);
 
+  // Separar transações em parceladas e à vista
+  const parceladasTransactions = useMemo(() =>
+    filteredTransactions.filter(t => t.isInstallment && t.type === 'expense'),
+    [filteredTransactions]
+  );
+
+  const avistaTransactions = useMemo(() =>
+    filteredTransactions.filter(t => !t.isInstallment && t.type === 'expense'),
+    [filteredTransactions]
+  );
+
+  const incomeTransactions = useMemo(() =>
+    filteredTransactions.filter(t => t.type === 'income'),
+    [filteredTransactions]
+  );
+
+  // Totais separados
+  const parceladasTotal = useMemo(() =>
+    parceladasTransactions.reduce((sum, t) => sum + t.amount, 0),
+    [parceladasTransactions]
+  );
+
+  const avistaTotal = useMemo(() =>
+    avistaTransactions.reduce((sum, t) => sum + t.amount, 0),
+    [avistaTransactions]
+  );
+
   // Filtrar recorrentes
   const filteredRecurring = useMemo(() => {
     if (filterType !== 'all' && filterType !== 'recurring') return [];
@@ -355,6 +382,223 @@ export default function Gerenciar() {
       .reduce((sum, t) => sum + t.amount, 0);
     return { income, expense, balance: income - expense };
   }, [filteredTransactions]);
+
+  // Função para renderizar um item de transação
+  const renderTransactionItem = (t: Transaction) => {
+    const category = getCategoryById(t.categoryId);
+    const person = getPersonById(t.person);
+    const card = getCardById(t.cardId || '');
+    const isEditing = editingId === t.id;
+    const isDeleting = confirmDelete === t.id;
+
+    return (
+      <div
+        key={t.id}
+        className={`bg-white rounded-xl border ${
+          isEditing ? 'border-green-500 ring-2 ring-green-200' : 'border-gray-100'
+        } overflow-hidden`}
+      >
+        {isEditing ? (
+          // Formulário de edição
+          <div className="p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-gray-500">Descrição</label>
+                <input
+                  type="text"
+                  value={editForm.description}
+                  onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Valor (R$)</label>
+                <input
+                  type="number"
+                  value={editForm.amount}
+                  onChange={e => setEditForm({ ...editForm, amount: e.target.value })}
+                  step="0.01"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-gray-500">Data</label>
+                <input
+                  type="date"
+                  value={editForm.date}
+                  onChange={e => setEditForm({ ...editForm, date: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Tipo</label>
+                <select
+                  value={editForm.type}
+                  onChange={e => setEditForm({ ...editForm, type: e.target.value as TransactionType })}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                >
+                  <option value="expense">Gasto</option>
+                  <option value="income">Ganho</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-gray-500">Categoria</label>
+                <select
+                  value={editForm.categoryId}
+                  onChange={e => setEditForm({ ...editForm, categoryId: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                >
+                  {(editForm.type === 'expense' ? expenseCategories : incomeCategories).map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.icon} {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Pessoa</label>
+                <select
+                  value={editForm.person}
+                  onChange={e => setEditForm({ ...editForm, person: e.target.value as PersonType })}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                >
+                  {persons.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.icon} {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {editForm.type === 'expense' && userCards.length > 0 && (
+              <div>
+                <label className="text-xs text-gray-500">Cartão/Pagamento</label>
+                <select
+                  value={editForm.cardId}
+                  onChange={e => setEditForm({ ...editForm, cardId: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                >
+                  <option value="">Pix/Débito/Dinheiro</option>
+                  {userCards.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={saveEditing}
+                className="flex-1 py-2 rounded-lg bg-green-600 text-white text-sm font-medium"
+              >
+                Salvar
+              </button>
+              <button
+                onClick={cancelEditing}
+                className="flex-1 py-2 rounded-lg bg-gray-200 text-gray-700 text-sm font-medium"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          // Visualização normal
+          <div className="p-3">
+            <div className="flex items-start gap-3">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
+                style={{ backgroundColor: category?.color + '20' }}
+              >
+                {category?.icon || '📦'}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-gray-900 truncate">
+                    {t.description}
+                  </p>
+                  {t.isInstallment && (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                      {t.installmentCurrent}/{t.installmentTotal}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                  <span>{formatDate(t.date)}</span>
+                  <span>•</span>
+                  <span>{person?.icon} {person?.name}</span>
+                  {card && (
+                    <>
+                      <span>•</span>
+                      <span style={{ color: card.color }}>{card.name}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <p
+                className={`font-semibold whitespace-nowrap ${
+                  t.type === 'expense' ? 'text-red-600' : 'text-green-600'
+                }`}
+              >
+                {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
+              </p>
+            </div>
+
+            {/* Ações */}
+            {isDeleting ? (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <p className="text-sm text-gray-600 mb-2">
+                  {t.installmentGroupId
+                    ? `Excluir todas as ${t.installmentTotal} parcelas?`
+                    : 'Confirmar exclusão?'}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleDelete(t)}
+                    className="flex-1 py-2 rounded-lg bg-red-600 text-white text-sm font-medium"
+                  >
+                    Excluir
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(null)}
+                    className="flex-1 py-2 rounded-lg bg-gray-200 text-gray-700 text-sm font-medium"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 pt-3 border-t border-gray-100 flex gap-2">
+                <button
+                  onClick={() => startEditing(t)}
+                  className="flex-1 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200"
+                >
+                  Editar
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(t.id)}
+                  className="flex-1 py-2 rounded-lg bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100"
+                >
+                  Excluir
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // Atualizar valor na planilha
   const updateSpreadsheetValue = (
@@ -751,228 +995,65 @@ export default function Gerenciar() {
 
           {/* Lista de transações */}
           {filterType !== 'recurring' && (
-          <div className="p-4 space-y-2">
+          <div className="p-4 space-y-4">
             {filteredTransactions.length === 0 && (filterType !== 'all' || filteredRecurring.length === 0) ? (
               <div className="text-center py-12 text-gray-500">
                 <span className="text-4xl mb-2 block">📋</span>
                 <p>Nenhuma transação encontrada</p>
               </div>
             ) : filteredTransactions.length === 0 ? null : (
-              filteredTransactions.map(t => {
-                const category = getCategoryById(t.categoryId);
-                const person = getPersonById(t.person);
-                const card = getCardById(t.cardId || '');
-                const isEditing = editingId === t.id;
-                const isDeleting = confirmDelete === t.id;
-
-                return (
-                  <div
-                    key={t.id}
-                    className={`bg-white rounded-xl border ${
-                      isEditing ? 'border-green-500 ring-2 ring-green-200' : 'border-gray-100'
-                    } overflow-hidden`}
-                  >
-                    {isEditing ? (
-                      // Formulário de edição
-                      <div className="p-4 space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-xs text-gray-500">Descrição</label>
-                            <input
-                              type="text"
-                              value={editForm.description}
-                              onChange={e => setEditForm({ ...editForm, description: e.target.value })}
-                              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-gray-500">Valor (R$)</label>
-                            <input
-                              type="number"
-                              value={editForm.amount}
-                              onChange={e => setEditForm({ ...editForm, amount: e.target.value })}
-                              step="0.01"
-                              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-xs text-gray-500">Data</label>
-                            <input
-                              type="date"
-                              value={editForm.date}
-                              onChange={e => setEditForm({ ...editForm, date: e.target.value })}
-                              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-gray-500">Tipo</label>
-                            <select
-                              value={editForm.type}
-                              onChange={e => setEditForm({ ...editForm, type: e.target.value as TransactionType })}
-                              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                            >
-                              <option value="expense">Gasto</option>
-                              <option value="income">Ganho</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-xs text-gray-500">Categoria</label>
-                            <select
-                              value={editForm.categoryId}
-                              onChange={e => setEditForm({ ...editForm, categoryId: e.target.value })}
-                              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                            >
-                              {(editForm.type === 'expense' ? expenseCategories : incomeCategories).map(c => (
-                                <option key={c.id} value={c.id}>
-                                  {c.icon} {c.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-xs text-gray-500">Pessoa</label>
-                            <select
-                              value={editForm.person}
-                              onChange={e => setEditForm({ ...editForm, person: e.target.value as PersonType })}
-                              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                            >
-                              {persons.map(p => (
-                                <option key={p.id} value={p.id}>
-                                  {p.icon} {p.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        {editForm.type === 'expense' && userCards.length > 0 && (
-                          <div>
-                            <label className="text-xs text-gray-500">Cartão/Pagamento</label>
-                            <select
-                              value={editForm.cardId}
-                              onChange={e => setEditForm({ ...editForm, cardId: e.target.value })}
-                              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
-                            >
-                              <option value="">Pix/Débito/Dinheiro</option>
-                              {userCards.map(c => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-
-                        <div className="flex gap-2 pt-2">
-                          <button
-                            onClick={saveEditing}
-                            className="flex-1 py-2 rounded-lg bg-green-600 text-white text-sm font-medium"
-                          >
-                            Salvar
-                          </button>
-                          <button
-                            onClick={cancelEditing}
-                            className="flex-1 py-2 rounded-lg bg-gray-200 text-gray-700 text-sm font-medium"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      // Visualização normal
-                      <div className="p-3">
-                        <div className="flex items-start gap-3">
-                          <div
-                            className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
-                            style={{ backgroundColor: category?.color + '20' }}
-                          >
-                            {category?.icon || '📦'}
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-gray-900 truncate">
-                                {t.description}
-                              </p>
-                              {t.isInstallment && (
-                                <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
-                                  {t.installmentCurrent}/{t.installmentTotal}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                              <span>{formatDate(t.date)}</span>
-                              <span>•</span>
-                              <span>{person?.icon} {person?.name}</span>
-                              {card && (
-                                <>
-                                  <span>•</span>
-                                  <span style={{ color: card.color }}>{card.name}</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-
-                          <p
-                            className={`font-semibold whitespace-nowrap ${
-                              t.type === 'expense' ? 'text-red-600' : 'text-green-600'
-                            }`}
-                          >
-                            {t.type === 'expense' ? '-' : '+'}{formatCurrency(t.amount)}
-                          </p>
-                        </div>
-
-                        {/* Ações */}
-                        {isDeleting ? (
-                          <div className="mt-3 pt-3 border-t border-gray-100">
-                            <p className="text-sm text-gray-600 mb-2">
-                              {t.installmentGroupId
-                                ? `Excluir todas as ${t.installmentTotal} parcelas?`
-                                : 'Confirmar exclusão?'}
-                            </p>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleDelete(t)}
-                                className="flex-1 py-2 rounded-lg bg-red-600 text-white text-sm font-medium"
-                              >
-                                Excluir
-                              </button>
-                              <button
-                                onClick={() => setConfirmDelete(null)}
-                                className="flex-1 py-2 rounded-lg bg-gray-200 text-gray-700 text-sm font-medium"
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="mt-3 pt-3 border-t border-gray-100 flex gap-2">
-                            <button
-                              onClick={() => startEditing(t)}
-                              className="flex-1 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => setConfirmDelete(t.id)}
-                              className="flex-1 py-2 rounded-lg bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100"
-                            >
-                              Excluir
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
+              <>
+                {/* Seção: Compras Parceladas */}
+                {parceladasTransactions.length > 0 && (filterType === 'all' || filterType === 'expense') && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                        🔄 Compras Parceladas
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {parceladasTransactions.length} {parceladasTransactions.length === 1 ? 'item' : 'itens'} • {formatCurrency(parceladasTotal)}
+                      </span>
+                    </div>
+                    <div className="space-y-2 pl-2 border-l-2 border-blue-200">
+                      {parceladasTransactions.map(t => renderTransactionItem(t))}
+                    </div>
                   </div>
-                );
-              })
+                )}
+
+                {/* Seção: Compras à Vista */}
+                {avistaTransactions.length > 0 && (filterType === 'all' || filterType === 'expense') && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full">
+                        💳 Compras à Vista
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {avistaTransactions.length} {avistaTransactions.length === 1 ? 'item' : 'itens'} • {formatCurrency(avistaTotal)}
+                      </span>
+                    </div>
+                    <div className="space-y-2 pl-2 border-l-2 border-green-200">
+                      {avistaTransactions.map(t => renderTransactionItem(t))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Seção: Ganhos */}
+                {incomeTransactions.length > 0 && (filterType === 'all' || filterType === 'income') && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">
+                        💰 Ganhos
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {incomeTransactions.length} {incomeTransactions.length === 1 ? 'item' : 'itens'} • {formatCurrency(totals.income)}
+                      </span>
+                    </div>
+                    <div className="space-y-2 pl-2 border-l-2 border-emerald-200">
+                      {incomeTransactions.map(t => renderTransactionItem(t))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
           )}
